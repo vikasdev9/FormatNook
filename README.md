@@ -77,3 +77,4 @@ npm run test:e2e
 ## 📄 License
 
 MIT License. Built for developers with privacy and speed.
+
