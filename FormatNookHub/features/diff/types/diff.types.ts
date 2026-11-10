@@ -9,10 +9,12 @@ export type DiffFormat =
   | 'json'
   | 'xml'
   | 'yaml'
+  | 'csv'
+  | 'sql'
   | 'html'
   | 'css'
   | 'javascript'
-  | 'sql'
+  | 'code'
   | 'auto';
 
 export interface DiffOptions {
@@ -25,6 +27,7 @@ export interface DiffOptions {
   format: DiffFormat;
   prettifyBeforeCompare: boolean;
   sortKeys: boolean;
+  ignoreRowOrder?: boolean;
 }
 
 export interface DiffChange<T = string> {

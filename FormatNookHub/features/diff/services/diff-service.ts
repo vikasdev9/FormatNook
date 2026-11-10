@@ -9,6 +9,8 @@ import {
   DiffStatistics,
   InlineDiffToken,
 } from '../types/diff.types';
+import { getEngine } from './engines';
+import { DiffEngineResult } from './engines/types';
 import { formatXml } from '@/features/xml/services/xml-service';
 import { formatYaml } from '@/features/yaml/services/yaml-service';
 import {
@@ -474,9 +476,9 @@ export function preprocessContent(
 }
 
 /**
- * Main Diff Computation function with Universal Multi-Format support.
+ * Low-level text comparison runner across granularities without engine dispatch.
  */
-export function computeDiff(
+export function computeRawTextDiff(
   originalText: string,
   modifiedText: string,
   options: DiffOptions = DEFAULT_DIFF_OPTIONS
@@ -501,6 +503,52 @@ export function computeDiff(
     };
   }
 
+  let result: DiffResultData;
+  if (options.granularity === 'word') {
+    result = computeWordGranularityDiff(originalText, modifiedText, options);
+  } else if (options.granularity === 'char') {
+    result = computeCharGranularityDiff(originalText, modifiedText, options);
+  } else {
+    result = computeLineGranularityDiff(originalText, modifiedText, options);
+  }
+
+  return {
+    ...result,
+    detectedFormat: options.format === 'auto' ? 'text' : options.format,
+  };
+}
+
+/**
+ * Main Diff Computation function with Universal Multi-Format engine dispatch.
+ */
+export function computeDiff(
+  originalText: string,
+  modifiedText: string,
+  options: DiffOptions = DEFAULT_DIFF_OPTIONS
+): DiffEngineResult {
+  const isEmpty = originalText.length === 0 && modifiedText.length === 0;
+
+  if (isEmpty) {
+    return {
+      lines: [],
+      statistics: {
+        totalLines: 0,
+        addedLines: 0,
+        removedLines: 0,
+        modifiedLines: 0,
+        unchangedLines: 0,
+        differencePercentage: 0,
+      },
+      isIdentical: true,
+      isEmpty: true,
+      unifiedDiffText: '',
+      detectedFormat: 'text',
+      format: 'text',
+      isValid: { original: true, modified: true },
+      errors: {},
+    };
+  }
+
   // Format detection and normalization
   const effectiveFormat: DiffFormat =
     options.format === 'auto'
@@ -509,36 +557,15 @@ export function computeDiff(
           : detectFormat(modifiedText))
       : options.format;
 
-  let textA = originalText;
-  let textB = modifiedText;
-  const formatWarnings: { original?: string; modified?: string } = {};
-
-  if (effectiveFormat !== 'text' && (options.prettifyBeforeCompare || options.sortKeys)) {
-    const prepA = preprocessContent(originalText, effectiveFormat, options);
-    const prepB = preprocessContent(modifiedText, effectiveFormat, options);
-    textA = prepA.text;
-    textB = prepB.text;
-    if (prepA.warning) formatWarnings.original = prepA.warning;
-    if (prepB.warning) formatWarnings.modified = prepB.warning;
-  }
-
-  let result: DiffResultData;
-
-  // Granularity routing
-  if (options.granularity === 'word') {
-    result = computeWordGranularityDiff(textA, textB, options);
-  } else if (options.granularity === 'char') {
-    result = computeCharGranularityDiff(textA, textB, options);
-  } else {
-    result = computeLineGranularityDiff(textA, textB, options);
-  }
-
-  return {
-    ...result,
-    detectedFormat: effectiveFormat,
-    formatWarnings:
-      formatWarnings.original || formatWarnings.modified ? formatWarnings : undefined,
-  };
+  const engine = getEngine(effectiveFormat);
+  return engine.compare({
+    originalText,
+    modifiedText,
+    options: {
+      ...options,
+      format: effectiveFormat,
+    },
+  });
 }
 
 /**
