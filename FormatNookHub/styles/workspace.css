@@ -1203,4 +1203,348 @@
   }
 }
 
+/* ==========================================================================
+   Universal Diff Checker 10-Mode UI Enhancements
+   ========================================================================== */
+
+.diff-toolbar-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* Mode Selector Bar */
+.diff-mode-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  overflow-x: auto;
+}
+
+.diff-mode-bar-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.diff-mode-pills-scroll {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.diff-mode-pill {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  border-radius: var(--radius-full, 9999px);
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+}
+
+.diff-mode-pill:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--border-medium);
+}
+
+.diff-mode-pill.active {
+  background-color: var(--color-primary);
+  color: #ffffff;
+  border-color: var(--color-primary);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+/* Editor Error Indicators */
+.panel-has-error {
+  border-color: var(--color-error, #ef4444) !important;
+}
+
+.textarea-has-error {
+  background-color: rgba(239, 68, 68, 0.03);
+}
+
+.diff-editor-error-badge {
+  background-color: var(--color-error, #ef4444);
+  color: #ffffff;
+  font-size: 0.7rem;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diff-editor-format-badge {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+}
+
+/* Diff Loading State */
+.diff-loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 3rem 1rem;
+  background-color: var(--bg-card);
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-lg);
+  color: var(--text-muted);
+}
+
+.diff-loading-text {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.spin-animation {
+  animation: diff-spin 1s linear infinite;
+}
+
+@keyframes diff-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Total Differences Stat Card */
+.diff-stat-total-diffs .diff-stat-icon {
+  background-color: rgba(99, 102, 241, 0.1);
+  color: var(--color-primary, #6366f1);
+}
+
+/* Structured Diff Viewer Card */
+.structured-diff-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.structured-card-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background-color: var(--bg-secondary);
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color var(--transition-fast);
+}
+
+.structured-card-header:hover {
+  background-color: var(--bg-hover);
+}
+
+.structured-header-title {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  flex-wrap: wrap;
+}
+
+.structured-summary-pill {
+  font-size: 0.75rem;
+  font-weight: normal;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-full, 9999px);
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+}
+
+.structured-card-body {
+  padding: 1rem;
+  border-top: 1px solid var(--border-subtle);
+  max-height: 380px;
+  overflow-y: auto;
+}
+
+.structured-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.structured-diff-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.5rem 0.75rem;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  font-size: 0.825rem;
+}
+
+.structured-item-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.structured-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+  border-radius: var(--radius-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.structured-badge-added {
+  background-color: rgba(34, 197, 94, 0.15);
+  color: var(--color-success, #16a34a);
+}
+
+.structured-badge-removed {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: var(--color-error, #dc2626);
+}
+
+.structured-badge-modified {
+  background-color: rgba(245, 158, 11, 0.15);
+  color: var(--color-warning, #d97706);
+}
+
+.structured-badge-type {
+  background-color: rgba(147, 51, 234, 0.15);
+  color: #9333ea;
+}
+
+.structured-path {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.structured-item-values {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.diff-val-old {
+  color: var(--color-error, #dc2626);
+}
+
+.diff-val-new {
+  color: var(--color-success, #16a34a);
+}
+
+.diff-val-type {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.structured-stats-row {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.pill-stat {
+  padding: 0.3rem 0.6rem;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.structured-header-changes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.825rem;
+}
+
+.structured-table-wrapper {
+  overflow-x: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.structured-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.structured-table th,
+.structured-table td {
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.structured-table th {
+  background-color: var(--bg-secondary);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.sql-clause-badge {
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.js-symbol-kind {
+  font-weight: 600;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.structured-item-sublist {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding-left: 1rem;
+  border-left: 2px solid var(--border-subtle);
+  margin-top: 0.35rem;
+}
+
+.structured-sub-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.775rem;
+}
+
+.prop-name {
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+
 

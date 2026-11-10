@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef } from 'react';
+import { AlertCircle } from 'lucide-react';
 import { FileDropzone } from '@/components/workspace/FileDropzone';
 import { formatByteSize } from '@/lib/file-reader';
 
@@ -14,6 +15,9 @@ interface TextEditorProps {
   scrollRef?: React.RefObject<HTMLTextAreaElement>;
   readOnly?: boolean;
   testId?: string;
+  error?: string;
+  formatBadge?: string;
+  acceptExtensions?: string[];
 }
 
 export function TextEditor({
@@ -26,6 +30,9 @@ export function TextEditor({
   scrollRef,
   readOnly = false,
   testId,
+  error,
+  formatBadge,
+  acceptExtensions = ['.txt', '.json', '.xml', '.yaml', '.yml', '.csv', '.sql', '.html', '.css', '.js', '.ts', '.md', '.diff'],
 }: TextEditorProps) {
   const localRef = useRef<HTMLTextAreaElement>(null);
   const textareaRef = scrollRef || localRef;
@@ -67,10 +74,25 @@ export function TextEditor({
   };
 
   return (
-    <div className="editor-panel diff-editor-panel" data-testid={testId || `editor-${id}`}>
+    <div className={`editor-panel diff-editor-panel ${error ? 'panel-has-error' : ''}`} data-testid={testId || `editor-${id}`}>
       <div className="panel-header">
         <div className="panel-title-group">
           <span className="diff-editor-title">{title}</span>
+          {formatBadge && (
+            <span className="badge badge-accent diff-editor-format-badge">
+              {formatBadge}
+            </span>
+          )}
+          {error && (
+            <span
+              className="badge badge-error diff-editor-error-badge"
+              title={error}
+              data-testid={`error-badge-${id}`}
+            >
+              <AlertCircle size={12} style={{ display: 'inline', marginRight: 4 }} />
+              {error}
+            </span>
+          )}
           <span className="panel-stats">
             {lineCount} {lineCount === 1 ? 'line' : 'lines'} • {charCount} chars ({formatByteSize(byteCount)})
           </span>
@@ -78,7 +100,7 @@ export function TextEditor({
         <div className="panel-actions">
           <FileDropzone
             onFileLoaded={(content) => onChange(content)}
-            acceptExtensions={['.txt', '.json', '.xml', '.yaml', '.yml', '.js', '.ts', '.css', '.html', '.md', '.diff']}
+            acceptExtensions={acceptExtensions}
           />
         </div>
       </div>
@@ -93,7 +115,7 @@ export function TextEditor({
           <textarea
             id={id}
             ref={textareaRef}
-            className="editor-textarea diff-textarea"
+            className={`editor-textarea diff-textarea ${error ? 'textarea-has-error' : ''}`}
             value={value}
             onChange={(e) => onChange(e.target.value)}
             onScroll={handleScroll}
@@ -111,4 +133,3 @@ export function TextEditor({
     </div>
   );
 }
-

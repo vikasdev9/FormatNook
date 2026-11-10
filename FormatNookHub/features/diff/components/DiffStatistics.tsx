@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { PlusCircle, MinusCircle, Edit3, CheckCircle2, Hash, Percent } from 'lucide-react';
+import { PlusCircle, MinusCircle, Edit3, CheckCircle2, Hash, Percent, GitCommit } from 'lucide-react';
 import { DiffStatistics as DiffStatsType } from '../types/diff.types';
 
 interface DiffStatisticsProps {
@@ -10,6 +10,8 @@ interface DiffStatisticsProps {
 }
 
 export function DiffStatistics({ stats, isIdentical }: DiffStatisticsProps) {
+  const totalDifferences = stats.addedLines + stats.removedLines + stats.modifiedLines;
+
   return (
     <div className="diff-stats-wrapper" role="region" aria-label="Difference Statistics">
       <div className="diff-stats-grid">
@@ -63,6 +65,16 @@ export function DiffStatistics({ stats, isIdentical }: DiffStatisticsProps) {
           </div>
         </div>
 
+        <div className="diff-stat-card diff-stat-total-diffs" data-testid="stat-total-differences">
+          <div className="diff-stat-icon text-accent">
+            <GitCommit size={16} />
+          </div>
+          <div className="diff-stat-info">
+            <span className="diff-stat-value">{isIdentical ? 0 : totalDifferences}</span>
+            <span className="diff-stat-label">Total Diffs</span>
+          </div>
+        </div>
+
         <div className="diff-stat-card diff-stat-diff-percent" data-testid="stat-difference-percentage">
           <div className="diff-stat-icon text-info">
             <Percent size={16} />
@@ -78,4 +90,3 @@ export function DiffStatistics({ stats, isIdentical }: DiffStatisticsProps) {
     </div>
   );
 }
-

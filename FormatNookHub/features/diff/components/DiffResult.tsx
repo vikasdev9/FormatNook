@@ -1,17 +1,29 @@
 'use client';
 
 import React, { useRef } from 'react';
-import { CheckCircle2, FileQuestion, AlertTriangle } from 'lucide-react';
+import { CheckCircle2, FileQuestion, AlertTriangle, Loader2 } from 'lucide-react';
 import { DiffResultData, DiffViewMode } from '../types/diff.types';
+import { DiffEngineResult } from '../services/engines/types';
 import { DiffLine } from './DiffLine';
+import { StructuredDiffViewer } from './StructuredDiffViewer';
 
 interface DiffResultProps {
-  diffResult: DiffResultData | null;
+  diffResult: DiffResultData | DiffEngineResult | null;
   viewMode: DiffViewMode;
+  isComparing?: boolean;
 }
 
-export function DiffResult({ diffResult, viewMode }: DiffResultProps) {
+export function DiffResult({ diffResult, viewMode, isComparing = false }: DiffResultProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+
+  if (isComparing) {
+    return (
+      <div className="diff-loading-state" data-testid="diff-loading-state">
+        <Loader2 size={32} className="spin-animation text-accent" />
+        <span className="diff-loading-text">Comparing documents...</span>
+      </div>
+    );
+  }
 
   if (!diffResult || diffResult.isEmpty) {
     return (
@@ -27,6 +39,11 @@ export function DiffResult({ diffResult, viewMode }: DiffResultProps) {
     );
   }
 
+  const engineRes = diffResult as DiffEngineResult;
+  const originalError = engineRes.errors?.original || diffResult.formatWarnings?.original;
+  const modifiedError = engineRes.errors?.modified || diffResult.formatWarnings?.modified;
+  const hasErrors = Boolean(originalError || modifiedError);
+
   const formatBadge = diffResult.detectedFormat && diffResult.detectedFormat !== 'text' ? (
     <span className="badge badge-accent diff-format-badge" data-testid="detected-format-badge">
       {diffResult.detectedFormat.toUpperCase()}
@@ -35,7 +52,8 @@ export function DiffResult({ diffResult, viewMode }: DiffResultProps) {
 
   return (
     <div className="diff-result-wrapper" data-testid="diff-result-wrapper">
-      {diffResult.isIdentical && (
+      {/* Identical Documents State */}
+      {diffResult.isIdentical && !hasErrors && (
         <div
           className="diff-banner-identical"
           data-testid="banner-identical-text"
@@ -50,20 +68,33 @@ export function DiffResult({ diffResult, viewMode }: DiffResultProps) {
         </div>
       )}
 
-      {diffResult.formatWarnings && (
-        <div className="diff-banner-warning" data-testid="banner-format-warning" role="alert">
+      {/* Validation / Parsing Error State */}
+      {hasErrors && (
+        <div
+          className="diff-banner-warning diff-banner-error"
+          data-testid="banner-format-warning"
+          role="alert"
+        >
           <AlertTriangle size={18} className="text-warning" />
           <div className="diff-banner-warning-content">
-            {diffResult.formatWarnings.original && (
-              <div>Original: {diffResult.formatWarnings.original}</div>
-            )}
-            {diffResult.formatWarnings.modified && (
-              <div>Modified: {diffResult.formatWarnings.modified}</div>
-            )}
+            <div className="diff-banner-warning-title">
+              <strong>Syntax Notice:</strong> Falling back to line-by-line comparison due to parsing issues:
+            </div>
+            {originalError && <div>Original: {originalError}</div>}
+            {modifiedError && <div>Modified: {modifiedError}</div>}
           </div>
         </div>
       )}
 
+      {/* Hierarchical Structured Inspector for Structured Formats */}
+      {engineRes.structuredData && (
+        <StructuredDiffViewer
+          structuredData={engineRes.structuredData}
+          format={engineRes.format || diffResult.detectedFormat || 'text'}
+        />
+      )}
+
+      {/* Visual Line-by-Line Diff Viewer */}
       <div className="diff-viewer-card">
         <div className="diff-viewer-header">
           {viewMode === 'side-by-side' ? (

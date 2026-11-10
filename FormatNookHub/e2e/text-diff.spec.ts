@@ -404,5 +404,41 @@ test.describe('Feature: Text Comparison / Diff Checker', () => {
     await expect(banner).toBeVisible();
     await expect(banner).toContainText(/No differences found/i);
   });
+
+  // Scenario 25: Prominent 10-mode selector bar and CSV structured comparison
+  test('25. Prominent mode selector bar switches mode and displays structured inspector', async ({ page }) => {
+    await page.goto('/tools/diff-checker');
+
+    // Click CSV mode pill in prominent mode bar
+    const csvModeBtn = page.getByTestId('btn-mode-csv');
+    await expect(csvModeBtn).toBeVisible();
+    await csvModeBtn.click();
+
+    // Editor titles dynamically update
+    await expect(page.locator('.diff-editor-title').first()).toContainText('Original CSV');
+
+    // Structured diff viewer is visible
+    const structuredViewer = page.getByTestId('structured-diff-viewer');
+    await expect(structuredViewer).toBeVisible();
+    await expect(structuredViewer).toContainText(/Structural Analysis \(CSV\)/i);
+  });
+
+  // Scenario 26: Total Differences statistic card updates correctly
+  test('26. Total Differences statistic card calculates total diff count accurately', async ({ page }) => {
+    await page.goto('/tools/diff-checker');
+
+    const orig = page.getByTestId('textarea-original-editor');
+    const mod = page.getByTestId('textarea-modified-editor');
+
+    await orig.fill('Line 1\nLine 2\nLine 3');
+    await mod.fill('Line 1\nLine 2 modified\nLine 3\nLine 4 added');
+
+    await page.getByTestId('btn-compare').click();
+
+    const totalDiffsStat = page.getByTestId('stat-total-differences');
+    await expect(totalDiffsStat).toBeVisible();
+    // 1 modified + 1 added = 2
+    await expect(totalDiffsStat).toContainText('2');
+  });
 });
 

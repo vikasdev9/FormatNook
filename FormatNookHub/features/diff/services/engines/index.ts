@@ -52,3 +52,4 @@ export function compareWithEngine(input: DiffEngineInput): DiffEngineResult {
   const engine = getEngine(input.options.format);
   return engine.compare(input);
 }
+

@@ -176,5 +176,44 @@ describe('TextDiffWorkspace Component', () => {
 
     expect(origTextarea.value).toContain('  "a": 1');
   });
+
+  it('renders prominent mode selector bar with all 10 comparison modes', () => {
+    render(<TextDiffWorkspace />);
+
+    const modes = ['auto', 'text', 'json', 'xml', 'yaml', 'csv', 'sql', 'html', 'css', 'javascript', 'code'];
+    for (const mode of modes) {
+      expect(screen.getByTestId(`btn-mode-${mode}`)).toBeInTheDocument();
+    }
+  });
+
+  it('updates editor labels, placeholders, and samples when switching mode pills', () => {
+    render(<TextDiffWorkspace />);
+
+    // Click SQL mode
+    const sqlPill = screen.getByTestId('btn-mode-sql');
+    fireEvent.click(sqlPill);
+
+    expect(screen.getByText(/Original SQL/i)).toBeInTheDocument();
+    expect(screen.getByText(/Modified SQL/i)).toBeInTheDocument();
+
+    const origTextarea = screen.getByTestId('textarea-original-editor') as HTMLTextAreaElement;
+    expect(origTextarea.value).toContain('SELECT');
+  });
+
+  it('displays Total Differences statistic card and structured diff viewer', () => {
+    render(<TextDiffWorkspace />);
+
+    expect(screen.getByTestId('stat-total-differences')).toBeInTheDocument();
+    expect(screen.getByTestId('structured-diff-viewer')).toBeInTheDocument();
+  });
+
+  it('exposes CSV Ignore Row Order option in settings card', () => {
+    render(<TextDiffWorkspace />);
+
+    const settingsToggle = screen.getByTestId('btn-toggle-settings');
+    fireEvent.click(settingsToggle);
+
+    expect(screen.getByTestId('checkbox-ignore-row-order')).toBeInTheDocument();
+  });
 });
 

@@ -8,6 +8,20 @@ interface DiffSettingsProps {
   onOptionsChange: (newOptions: DiffOptions) => void;
 }
 
+const ALL_FORMATS: { id: DiffFormat; label: string }[] = [
+  { id: 'auto', label: 'Auto-Detect' },
+  { id: 'text', label: 'Plain Text' },
+  { id: 'json', label: 'JSON' },
+  { id: 'xml', label: 'XML' },
+  { id: 'yaml', label: 'YAML' },
+  { id: 'csv', label: 'CSV' },
+  { id: 'sql', label: 'SQL' },
+  { id: 'html', label: 'HTML' },
+  { id: 'css', label: 'CSS' },
+  { id: 'javascript', label: 'JavaScript' },
+  { id: 'code', label: 'Generic Code' },
+];
+
 export function DiffSettings({ options, onOptionsChange }: DiffSettingsProps) {
   const updateOption = <K extends keyof DiffOptions>(key: K, value: DiffOptions[K]) => {
     onOptionsChange({
@@ -21,19 +35,17 @@ export function DiffSettings({ options, onOptionsChange }: DiffSettingsProps) {
       <div className="diff-settings-section">
         <span className="diff-settings-section-title">Format:</span>
         <div className="diff-pill-group" role="group" aria-label="Content Format">
-          {(['auto', 'text', 'json', 'xml', 'yaml', 'html', 'css', 'javascript', 'sql'] as DiffFormat[]).map(
-            (fmt) => (
-              <button
-                key={fmt}
-                type="button"
-                className={`diff-pill-btn ${options.format === fmt ? 'active' : ''}`}
-                onClick={() => updateOption('format', fmt)}
-                data-testid={`format-${fmt}`}
-              >
-                {fmt === 'auto' ? 'Auto-Detect' : fmt.toUpperCase()}
-              </button>
-            )
-          )}
+          {ALL_FORMATS.map((fmt) => (
+            <button
+              key={fmt.id}
+              type="button"
+              className={`diff-pill-btn ${options.format === fmt.id ? 'active' : ''}`}
+              onClick={() => updateOption('format', fmt.id)}
+              data-testid={`format-${fmt.id}`}
+            >
+              {fmt.label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -112,6 +124,17 @@ export function DiffSettings({ options, onOptionsChange }: DiffSettingsProps) {
             data-testid="checkbox-sort-keys"
           />
           <span>Sort Keys Alphabetically (JSON/YAML)</span>
+        </label>
+
+        <label className="diff-checkbox-label" htmlFor="opt-ignore-row-order">
+          <input
+            id="opt-ignore-row-order"
+            type="checkbox"
+            checked={options.ignoreRowOrder ?? false}
+            onChange={(e) => updateOption('ignoreRowOrder', e.target.checked)}
+            data-testid="checkbox-ignore-row-order"
+          />
+          <span>Ignore Row Order (CSV)</span>
         </label>
 
         <label className="diff-checkbox-label" htmlFor="opt-ignore-whitespace">

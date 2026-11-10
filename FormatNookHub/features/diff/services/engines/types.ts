@@ -33,3 +33,4 @@ export interface DiffEngine {
   readonly format: DiffFormat;
   compare(input: DiffEngineInput): DiffEngineResult;
 }
+
