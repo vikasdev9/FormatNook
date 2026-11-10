@@ -177,6 +177,14 @@ function runMyersCore<T>(
   let foundD = -1;
 
   for (let d = 0; d <= max; d++) {
+    // shortcut: Bail out if Myers search distance exceeds 2000 to prevent browser heap exhaustion on adversarial large inputs, upgrade when Web Worker diff streaming is added
+    if (d >= 2000) {
+      return [
+        ...a.map((val, idx) => ({ type: 'delete' as const, value: val, oldIndex: offsetA + idx })),
+        ...b.map((val, idx) => ({ type: 'insert' as const, value: val, newIndex: offsetA + idx })),
+      ];
+    }
+
     const vSnapshot = new Int32Array(v);
     trace.push(vSnapshot);
 

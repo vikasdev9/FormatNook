@@ -440,5 +440,166 @@ test.describe('Feature: Text Comparison / Diff Checker', () => {
     // 1 modified + 1 added = 2
     await expect(totalDiffsStat).toContainText('2');
   });
+
+  // Scenario 27: XML element and attribute changes
+  test('27. XML comparison identifies element and attribute differences', async ({ page }) => {
+    await page.goto('/tools/diff-checker');
+    await page.getByTestId('btn-mode-xml').click();
+
+    const orig = page.getByTestId('textarea-original-editor');
+    const mod = page.getByTestId('textarea-modified-editor');
+
+    await orig.fill('<user id="10" role="viewer"><name>Alice</name></user>');
+    await mod.fill('<user id="10" role="admin"><name>Alice</name><email>alice@example.com</email></user>');
+
+    await page.getByTestId('btn-compare').click();
+
+    const structuredViewer = page.getByTestId('structured-diff-viewer');
+    await expect(structuredViewer).toBeVisible();
+    await expect(structuredViewer).toContainText(/Structural Analysis \(XML\)/i);
+  });
+
+  // Scenario 28: YAML nested structures comparison
+  test('28. YAML comparison handles nested mappings and sequences', async ({ page }) => {
+    await page.goto('/tools/diff-checker');
+    await page.getByTestId('btn-mode-yaml').click();
+
+    const orig = page.getByTestId('textarea-original-editor');
+    const mod = page.getByTestId('textarea-modified-editor');
+
+    await orig.fill('server:\n  port: 3000\n  env: dev');
+    await mod.fill('server:\n  port: 8080\n  env: production\n  ssl: true');
+
+    await page.getByTestId('btn-compare').click();
+
+    const structuredViewer = page.getByTestId('structured-diff-viewer');
+    await expect(structuredViewer).toBeVisible();
+    await expect(structuredViewer).toContainText(/Structural Analysis \(YAML\)/i);
+  });
+
+  // Scenario 29: Invalid JSON, XML and YAML display syntax error notice
+  test('29. Invalid structured inputs show clear syntax warning notices', async ({ page }) => {
+    await page.goto('/tools/diff-checker');
+    await page.getByTestId('btn-mode-json').click();
+
+    const orig = page.getByTestId('textarea-original-editor');
+    const mod = page.getByTestId('textarea-modified-editor');
+
+    await orig.fill('{ broken json');
+    await mod.fill('{"valid": true}');
+
+    await page.getByTestId('btn-compare').click();
+
+    const warningBanner = page.getByTestId('banner-format-warning');
+    await expect(warningBanner).toBeVisible();
+    await expect(warningBanner).toContainText(/Syntax Notice/i);
+  });
+
+  // Scenario 30: SQL comparison detects clauses and statement modifications
+  test('30. SQL comparison highlights query clause changes', async ({ page }) => {
+    await page.goto('/tools/diff-checker');
+    await page.getByTestId('btn-mode-sql').click();
+
+    const orig = page.getByTestId('textarea-original-editor');
+    const mod = page.getByTestId('textarea-modified-editor');
+
+    await orig.fill('SELECT id, name FROM users WHERE active = true;');
+    await mod.fill('SELECT id, name, email FROM users WHERE active = true ORDER BY name DESC;');
+
+    await page.getByTestId('btn-compare').click();
+
+    const structuredViewer = page.getByTestId('structured-diff-viewer');
+    await expect(structuredViewer).toBeVisible();
+    await expect(structuredViewer).toContainText(/Structural Analysis \(SQL\)/i);
+  });
+
+  // Scenario 31: HTML and CSS comparisons
+  test('31. HTML and CSS modes identify element and style rule differences', async ({ page }) => {
+    await page.goto('/tools/diff-checker');
+
+    // Test CSS
+    await page.getByTestId('btn-mode-css').click();
+    const orig = page.getByTestId('textarea-original-editor');
+    const mod = page.getByTestId('textarea-modified-editor');
+
+    await orig.fill('.card { color: red; margin: 10px; }');
+    await mod.fill('.card { color: blue; padding: 20px; }');
+
+    await page.getByTestId('btn-compare').click();
+    await expect(page.getByTestId('structured-diff-viewer')).toContainText(/Structural Analysis \(CSS\)/i);
+
+    // Test HTML
+    await page.getByTestId('btn-mode-html').click();
+    await orig.fill('<div class="box">Old</div>');
+    await mod.fill('<div class="box main">New</div>');
+
+    await page.getByTestId('btn-compare').click();
+    await expect(page.getByTestId('structured-diff-viewer')).toContainText(/Structural Analysis \(HTML\)/i);
+  });
+
+  // Scenario 32: JavaScript and Generic Code differences
+  test('32. JavaScript and Code modes detect symbols and line changes', async ({ page }) => {
+    await page.goto('/tools/diff-checker');
+
+    // Test JavaScript
+    await page.getByTestId('btn-mode-javascript').click();
+    const orig = page.getByTestId('textarea-original-editor');
+    const mod = page.getByTestId('textarea-modified-editor');
+
+    await orig.fill('function calculate() { return 1; }');
+    await mod.fill('function calculate() { return 2; }\nclass Service {}');
+
+    await page.getByTestId('btn-compare').click();
+    await expect(page.getByTestId('structured-diff-viewer')).toContainText(/Structural Analysis \(JAVASCRIPT\)/i);
+
+    // Test Generic Code
+    await page.getByTestId('btn-mode-code').click();
+    await orig.fill('# Python code\ndef test():\n    return False');
+    await mod.fill('# Python code\ndef test():\n    return True');
+
+    await page.getByTestId('btn-compare').click();
+    await expect(page.getByTestId('structured-diff-viewer')).toContainText(/Structural Analysis \(CODE\)/i);
+  });
+
+  // Scenario 33: Large input handling
+  test('33. Large inputs are compared stably without errors or freeze', async ({ page }) => {
+    await page.goto('/tools/diff-checker');
+    await page.getByTestId('btn-mode-text').click();
+
+    const orig = page.getByTestId('textarea-original-editor');
+    const mod = page.getByTestId('textarea-modified-editor');
+
+    // Generate 500 lines with 5 modified lines
+    const originalLines = Array.from({ length: 500 }, (_, i) => `Line item ${i + 1}`).join('\n');
+    const modifiedLines = Array.from({ length: 500 }, (_, i) => (i % 100 === 0 ? `Modified line item ${i + 1}` : `Line item ${i + 1}`)).join('\n');
+
+    await orig.fill(originalLines);
+    await mod.fill(modifiedLines);
+
+    await page.getByTestId('btn-compare').click();
+
+    const statTotal = page.getByTestId('stat-total-lines');
+    await expect(statTotal).toBeVisible();
+    await expect(page.getByTestId('stat-modified-lines')).toBeVisible();
+  });
+
+  // Scenario 34: Regressions check for Beautifiers and Encoders/Decoders
+  test('34. Beautifiers and Encoders/Decoders pages remain completely functional', async ({ page }) => {
+    // Check JSON beautifier
+    await page.goto('/tools/json-formatter');
+    await expect(page.locator('h1.tool-title')).toContainText(/JSON/i);
+
+    // Check Base64 tool
+    await page.goto('/tools/text-to-base64');
+    await expect(page.locator('h1.tool-title')).toContainText(/Base64/i);
+
+    // Check Encoders & Decoders Hub
+    await page.goto('/tools/encoders-decoders');
+    await expect(page.locator('h1.tool-title')).toContainText(/Encoders & Decoders/i);
+
+    // Check SQL Beautifier / Formatter
+    await page.goto('/tools/sql-formatter');
+    await expect(page.locator('h1.tool-title')).toContainText(/SQL/i);
+  });
 });
 

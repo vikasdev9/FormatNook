@@ -185,7 +185,7 @@ export class XmlEngine implements DiffEngine {
 
   private parseXmlElements(xml: string): Array<{ tag: string; path: string; attrs: Record<string, string>; text: string }> {
     const list: Array<{ tag: string; path: string; attrs: Record<string, string>; text: string }> = [];
-    const tagRegex = /<([a-zA-Z0-9_:-]+)([^>]*)>([^<]*)<\/\1>|<([a-zA-Z0-9_:-]+)([^>]*)\/>|<([a-zA-Z0-9_:-]+)([^>]*)>/g;
+    const tagRegex = /<([a-zA-Z0-9_:-]+)([^>]*)>([^<]*)<\/\1>|<([a-zA-Z0-9_:-]+)([^>]*)\/>|<\/([a-zA-Z0-9_:-]+)>|<([a-zA-Z0-9_:-]+)([^>]*)>/g;
     const pathStack: string[] = [];
     let match: RegExpExecArray | null;
 

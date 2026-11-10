@@ -106,8 +106,13 @@ export class JsEngine implements DiffEngine {
    */
   validateJsSyntax(code: string): { isValid: boolean; error?: string } {
     try {
+      // Strip import/export statements for function body validation so ES modules are valid
+      const moduleSafe = code
+        .replace(/^\s*import\s+[\s\S]*?from\s+['"][^'"]+[''];?/gm, '')
+        .replace(/^\s*export\s+(?:default\s+)?/gm, '');
+
       // Compiles code into a function body without invoking it
-      new Function(code);
+      new Function(moduleSafe);
       return { isValid: true };
     } catch (err: any) {
       return {
