@@ -155,7 +155,8 @@ export function formatXml(input: string, indent: IndentOption = '2'): ToolExecut
       node.startsWith('<?') ||
       node.startsWith('<!DOCTYPE') ||
       node.startsWith('<!--');
-    const isOpening = node.startsWith('<') && !isClosing && !isSelfClosing;
+    const isInlineElement = node.startsWith('<') && node.includes('</');
+    const isOpening = node.startsWith('<') && !isClosing && !isSelfClosing && !isInlineElement;
 
     if (isClosing && depth > 0) {
       depth--;

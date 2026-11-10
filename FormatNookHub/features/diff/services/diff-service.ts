@@ -1,6 +1,7 @@
 import {
   DiffChange,
   DiffChangeType,
+  DiffFormat,
   DiffGranularity,
   DiffLineItem,
   DiffOptions,
@@ -8,6 +9,14 @@ import {
   DiffStatistics,
   InlineDiffToken,
 } from '../types/diff.types';
+import { formatXml } from '@/features/xml/services/xml-service';
+import { formatYaml } from '@/features/yaml/services/yaml-service';
+import {
+  formatHtml,
+  formatCss,
+  formatJavascript,
+  formatSql,
+} from '@/features/beautifiers/services/beautifier-service';
 
 export const DEFAULT_DIFF_OPTIONS: DiffOptions = {
   ignoreWhitespace: false,
@@ -16,6 +25,9 @@ export const DEFAULT_DIFF_OPTIONS: DiffOptions = {
   ignoreTrailingWhitespace: false,
   granularity: 'line',
   viewMode: 'side-by-side',
+  format: 'auto',
+  prettifyBeforeCompare: false,
+  sortKeys: false,
 };
 
 /**
@@ -323,7 +335,146 @@ function prepareLines(lines: string[], ignoreBlankLines: boolean): IndexedLine[]
 }
 
 /**
- * Main Diff Computation function.
+ * Detect the content format (JSON, XML, YAML, HTML, CSS, JavaScript, SQL, or plain text).
+ */
+export function detectFormat(text: string): DiffFormat {
+  if (!text || !text.trim()) return 'text';
+  const trimmed = text.trim();
+
+  // JSON detection
+  if (
+    (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+    (trimmed.startsWith('[') && trimmed.endsWith(']'))
+  ) {
+    try {
+      JSON.parse(trimmed);
+      return 'json';
+    } catch {
+      // Not valid JSON, continue checks
+    }
+  }
+
+  // HTML / XML detection
+  if (trimmed.startsWith('<') && trimmed.endsWith('>')) {
+    if (
+      /<!DOCTYPE\s+html/i.test(trimmed) ||
+      /<html[\s>]/i.test(trimmed) ||
+      /<body[\s>]/i.test(trimmed)
+    ) {
+      return 'html';
+    }
+    if (/<\?xml/i.test(trimmed) || /<[a-zA-Z0-9_:-]+[\s>]/.test(trimmed)) {
+      return 'xml';
+    }
+  }
+
+  // SQL detection
+  if (/^(SELECT|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|WITH)\b/i.test(trimmed)) {
+    return 'sql';
+  }
+
+  // YAML detection
+  if (trimmed.startsWith('---') || (/^[\w.-]+:\s*.+$/m.test(trimmed) && !trimmed.includes('{'))) {
+    return 'yaml';
+  }
+
+  // CSS detection
+  if (/^[.#a-zA-Z0-9_\s,-]+{\s*[\w-]+:\s*[^}]+;?\s*}/m.test(trimmed)) {
+    return 'css';
+  }
+
+  // JavaScript detection
+  if (/\b(function|const|let|var|import|export|class)\b/.test(trimmed)) {
+    return 'javascript';
+  }
+
+  return 'text';
+}
+
+/**
+ * Recursively sort keys of an object alphabetically.
+ */
+export function sortObjectKeys(obj: any): any {
+  if (Array.isArray(obj)) {
+    return obj.map(sortObjectKeys);
+  }
+  if (obj !== null && typeof obj === 'object') {
+    const sortedKeys = Object.keys(obj).sort();
+    const result: Record<string, any> = {};
+    for (const key of sortedKeys) {
+      result[key] = sortObjectKeys(obj[key]);
+    }
+    return result;
+  }
+  return obj;
+}
+
+/**
+ * Pre-process and normalize content according to selected format and options.
+ */
+export function preprocessContent(
+  text: string,
+  format: DiffFormat,
+  options: Pick<DiffOptions, 'prettifyBeforeCompare' | 'sortKeys'>
+): { text: string; warning?: string } {
+  if (!text || !text.trim() || format === 'text') {
+    return { text };
+  }
+
+  try {
+    if (format === 'json') {
+      try {
+        let parsed = JSON.parse(text);
+        if (options.sortKeys) {
+          parsed = sortObjectKeys(parsed);
+        }
+        if (options.prettifyBeforeCompare || options.sortKeys) {
+          return { text: JSON.stringify(parsed, null, 2) };
+        }
+      } catch (err: any) {
+        return { text, warning: 'Invalid JSON: ' + (err?.message || 'Parse error') };
+      }
+    }
+
+    if (format === 'xml' && options.prettifyBeforeCompare) {
+      const res = formatXml(text, '2');
+      if (res.isValid) return { text: res.output };
+      return { text, warning: res.issues[0]?.message || 'XML syntax warning' };
+    }
+
+    if (format === 'yaml' && (options.prettifyBeforeCompare || options.sortKeys)) {
+      const res = formatYaml(text, '2');
+      if (res.isValid) return { text: res.output };
+      return { text, warning: res.issues[0]?.message || 'YAML syntax warning' };
+    }
+
+    if (options.prettifyBeforeCompare) {
+      if (format === 'html') {
+        const res = formatHtml(text, '2');
+        return { text: res.output };
+      }
+      if (format === 'css') {
+        const res = formatCss(text, '2');
+        return { text: res.output };
+      }
+      if (format === 'javascript') {
+        const res = formatJavascript(text, '2');
+        return { text: res.output };
+      }
+      if (format === 'sql') {
+        const res = formatSql(text, '2');
+        return { text: res.output };
+      }
+    }
+  } catch (err: any) {
+    return { text, warning: 'Formatting error: ' + (err?.message || 'failed to format') };
+  }
+
+  return { text };
+}
+
+/**
+ * Main Diff Computation function with Universal Multi-Format support.
  */
 export function computeDiff(
   originalText: string,
@@ -346,20 +497,48 @@ export function computeDiff(
       isIdentical: true,
       isEmpty: true,
       unifiedDiffText: '',
+      detectedFormat: 'text',
     };
   }
 
+  // Format detection and normalization
+  const effectiveFormat: DiffFormat =
+    options.format === 'auto'
+      ? (detectFormat(originalText) !== 'text'
+          ? detectFormat(originalText)
+          : detectFormat(modifiedText))
+      : options.format;
+
+  let textA = originalText;
+  let textB = modifiedText;
+  const formatWarnings: { original?: string; modified?: string } = {};
+
+  if (effectiveFormat !== 'text' && (options.prettifyBeforeCompare || options.sortKeys)) {
+    const prepA = preprocessContent(originalText, effectiveFormat, options);
+    const prepB = preprocessContent(modifiedText, effectiveFormat, options);
+    textA = prepA.text;
+    textB = prepB.text;
+    if (prepA.warning) formatWarnings.original = prepA.warning;
+    if (prepB.warning) formatWarnings.modified = prepB.warning;
+  }
+
+  let result: DiffResultData;
+
   // Granularity routing
   if (options.granularity === 'word') {
-    return computeWordGranularityDiff(originalText, modifiedText, options);
+    result = computeWordGranularityDiff(textA, textB, options);
+  } else if (options.granularity === 'char') {
+    result = computeCharGranularityDiff(textA, textB, options);
+  } else {
+    result = computeLineGranularityDiff(textA, textB, options);
   }
 
-  if (options.granularity === 'char') {
-    return computeCharGranularityDiff(originalText, modifiedText, options);
-  }
-
-  // Default: Line-level granularity
-  return computeLineGranularityDiff(originalText, modifiedText, options);
+  return {
+    ...result,
+    detectedFormat: effectiveFormat,
+    formatWarnings:
+      formatWarnings.original || formatWarnings.modified ? formatWarnings : undefined,
+  };
 }
 
 /**

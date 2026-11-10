@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useRef } from 'react';
-import { CheckCircle2, FileQuestion, ArrowRight } from 'lucide-react';
-import { DiffLineItem, DiffResultData, DiffViewMode } from '../types/diff.types';
+import { CheckCircle2, FileQuestion, AlertTriangle } from 'lucide-react';
+import { DiffResultData, DiffViewMode } from '../types/diff.types';
 import { DiffLine } from './DiffLine';
 
 interface DiffResultProps {
@@ -27,6 +27,12 @@ export function DiffResult({ diffResult, viewMode }: DiffResultProps) {
     );
   }
 
+  const formatBadge = diffResult.detectedFormat && diffResult.detectedFormat !== 'text' ? (
+    <span className="badge badge-accent diff-format-badge" data-testid="detected-format-badge">
+      {diffResult.detectedFormat.toUpperCase()}
+    </span>
+  ) : null;
+
   return (
     <div className="diff-result-wrapper" data-testid="diff-result-wrapper">
       {diffResult.isIdentical && (
@@ -38,8 +44,23 @@ export function DiffResult({ diffResult, viewMode }: DiffResultProps) {
         >
           <CheckCircle2 size={18} className="text-success" />
           <span className="diff-banner-text">
-            <strong>No differences found!</strong> The two texts are identical.
+            <strong>No differences found!</strong> The two documents are identical.
           </span>
+          {formatBadge}
+        </div>
+      )}
+
+      {diffResult.formatWarnings && (
+        <div className="diff-banner-warning" data-testid="banner-format-warning" role="alert">
+          <AlertTriangle size={18} className="text-warning" />
+          <div className="diff-banner-warning-content">
+            {diffResult.formatWarnings.original && (
+              <div>Original: {diffResult.formatWarnings.original}</div>
+            )}
+            {diffResult.formatWarnings.modified && (
+              <div>Modified: {diffResult.formatWarnings.modified}</div>
+            )}
+          </div>
         </div>
       )}
 
@@ -49,14 +70,17 @@ export function DiffResult({ diffResult, viewMode }: DiffResultProps) {
             <div className="diff-header-split">
               <div className="diff-header-pane-title">
                 <span>Original Text</span>
+                {formatBadge}
               </div>
               <div className="diff-header-pane-title">
                 <span>Modified Text</span>
+                {formatBadge}
               </div>
             </div>
           ) : (
             <div className="diff-header-unified">
               <span className="diff-header-pane-title">Unified Comparison Result</span>
+              {formatBadge}
             </div>
           )}
         </div>
@@ -76,4 +100,3 @@ export function DiffResult({ diffResult, viewMode }: DiffResultProps) {
     </div>
   );
 }
-

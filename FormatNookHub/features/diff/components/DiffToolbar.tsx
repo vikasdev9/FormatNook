@@ -11,8 +11,9 @@ import {
   SlidersHorizontal,
   Columns,
   AlignLeft,
+  Sparkles,
 } from 'lucide-react';
-import { DiffOptions, DiffViewMode } from '../types/diff.types';
+import { DiffFormat, DiffOptions, DiffViewMode } from '../types/diff.types';
 import { useClipboard } from '@/hooks/useClipboard';
 import { downloadFile } from '@/lib/download';
 
@@ -20,6 +21,7 @@ interface DiffToolbarProps {
   onCompare: () => void;
   onSwap: () => void;
   onClear: () => void;
+  onPrettify?: () => void;
   options: DiffOptions;
   onOptionsChange: (newOptions: DiffOptions) => void;
   showSettings: boolean;
@@ -32,6 +34,7 @@ export function DiffToolbar({
   onCompare,
   onSwap,
   onClear,
+  onPrettify,
   options,
   onOptionsChange,
   showSettings,
@@ -50,6 +53,10 @@ export function DiffToolbar({
     onOptionsChange({ ...options, viewMode: mode });
   };
 
+  const setFormat = (format: DiffFormat) => {
+    onOptionsChange({ ...options, format });
+  };
+
   return (
     <div className="diff-toolbar" role="toolbar" aria-label="Diff Checker Controls">
       <div className="toolbar-group-left">
@@ -64,6 +71,42 @@ export function DiffToolbar({
           <GitCompare size={16} />
           <span>{isComparing ? 'Comparing...' : 'Compare'}</span>
         </button>
+
+        <div className="options-control-group diff-format-select-group">
+          <label htmlFor="diff-format-select" className="sr-only">Format:</label>
+          <select
+            id="diff-format-select"
+            className="select-control diff-format-select"
+            value={options.format}
+            onChange={(e) => setFormat(e.target.value as DiffFormat)}
+            data-testid="select-diff-format"
+            aria-label="Format selection"
+          >
+            <option value="auto">Format: Auto-Detect</option>
+            <option value="text">Format: Plain Text</option>
+            <option value="json">Format: JSON</option>
+            <option value="xml">Format: XML</option>
+            <option value="yaml">Format: YAML</option>
+            <option value="html">Format: HTML</option>
+            <option value="css">Format: CSS</option>
+            <option value="javascript">Format: JavaScript</option>
+            <option value="sql">Format: SQL</option>
+          </select>
+        </div>
+
+        {onPrettify && (
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={onPrettify}
+            data-testid="btn-prettify"
+            title="Prettify / format both inputs"
+            aria-label="Prettify inputs"
+          >
+            <Sparkles size={14} />
+            <span>Prettify</span>
+          </button>
+        )}
 
         <button
           type="button"
@@ -157,4 +200,3 @@ export function DiffToolbar({
     </div>
   );
 }
-

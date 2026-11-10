@@ -1,9 +1,11 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { DiffOptions, DiffResultData } from '../types/diff.types';
+import { DiffFormat, DiffOptions, DiffResultData } from '../types/diff.types';
 import {
   computeDiff,
+  detectFormat,
+  preprocessContent,
   DEFAULT_DIFF_OPTIONS,
 } from '../services/diff-service';
 import { DiffToolbar } from './DiffToolbar';
@@ -115,6 +117,29 @@ export function TextDiffWorkspace() {
     executeDiff('', '', options);
   };
 
+  const handlePrettifyBoth = () => {
+    const effectiveFormat: DiffFormat =
+      options.format === 'auto'
+        ? (detectFormat(originalText) !== 'text'
+            ? detectFormat(originalText)
+            : detectFormat(modifiedText))
+        : options.format;
+
+    if (effectiveFormat === 'text') return;
+
+    const prepOrig = preprocessContent(originalText, effectiveFormat, {
+      prettifyBeforeCompare: true,
+      sortKeys: options.sortKeys,
+    });
+    const prepMod = preprocessContent(modifiedText, effectiveFormat, {
+      prettifyBeforeCompare: true,
+      sortKeys: options.sortKeys,
+    });
+
+    setOriginalText(prepOrig.text);
+    setModifiedText(prepMod.text);
+  };
+
   return (
     <div className="diff-workspace-container" data-testid="diff-workspace">
       {/* Diff Toolbar */}
@@ -122,6 +147,7 @@ export function TextDiffWorkspace() {
         onCompare={handleCompareClick}
         onSwap={handleSwap}
         onClear={handleClear}
+        onPrettify={handlePrettifyBoth}
         options={options}
         onOptionsChange={setOptions}
         showSettings={showSettings}
@@ -176,4 +202,3 @@ export function TextDiffWorkspace() {
     </div>
   );
 }
-

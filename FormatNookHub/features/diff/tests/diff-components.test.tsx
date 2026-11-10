@@ -157,5 +157,24 @@ describe('TextDiffWorkspace Component', () => {
       );
     });
   });
+
+  it('supports format selection and prettify button', () => {
+    render(<TextDiffWorkspace />);
+
+    // Format select is rendered
+    const formatSelect = screen.getByTestId('select-diff-format') as HTMLSelectElement;
+    expect(formatSelect).toBeInTheDocument();
+    fireEvent.change(formatSelect, { target: { value: 'json' } });
+    expect(formatSelect.value).toBe('json');
+
+    // Prettify button works
+    const origTextarea = screen.getByTestId('textarea-original-editor') as HTMLTextAreaElement;
+    fireEvent.change(origTextarea, { target: { value: '{"a":1,"b":2}' } });
+
+    const prettifyBtn = screen.getByTestId('btn-prettify');
+    fireEvent.click(prettifyBtn);
+
+    expect(origTextarea.value).toContain('  "a": 1');
+  });
 });
 

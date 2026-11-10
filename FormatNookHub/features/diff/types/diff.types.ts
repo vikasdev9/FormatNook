@@ -4,6 +4,17 @@ export type DiffViewMode = 'side-by-side' | 'inline';
 
 export type DiffChangeType = 'equal' | 'insert' | 'delete';
 
+export type DiffFormat =
+  | 'text'
+  | 'json'
+  | 'xml'
+  | 'yaml'
+  | 'html'
+  | 'css'
+  | 'javascript'
+  | 'sql'
+  | 'auto';
+
 export interface DiffOptions {
   ignoreWhitespace: boolean;
   ignoreCase: boolean;
@@ -11,6 +22,9 @@ export interface DiffOptions {
   ignoreTrailingWhitespace: boolean;
   granularity: DiffGranularity;
   viewMode: DiffViewMode;
+  format: DiffFormat;
+  prettifyBeforeCompare: boolean;
+  sortKeys: boolean;
 }
 
 export interface DiffChange<T = string> {
@@ -52,5 +66,9 @@ export interface DiffResultData {
   isIdentical: boolean;
   isEmpty: boolean;
   unifiedDiffText: string;
+  detectedFormat?: DiffFormat;
+  formatWarnings?: {
+    original?: string;
+    modified?: string;
+  };
 }
-

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { DiffGranularity, DiffOptions, DiffViewMode } from '../types/diff.types';
+import { DiffFormat, DiffGranularity, DiffOptions, DiffViewMode } from '../types/diff.types';
 
 interface DiffSettingsProps {
   options: DiffOptions;
@@ -18,6 +18,25 @@ export function DiffSettings({ options, onOptionsChange }: DiffSettingsProps) {
 
   return (
     <div className="diff-settings-card" role="region" aria-label="Comparison Settings">
+      <div className="diff-settings-section">
+        <span className="diff-settings-section-title">Format:</span>
+        <div className="diff-pill-group" role="group" aria-label="Content Format">
+          {(['auto', 'text', 'json', 'xml', 'yaml', 'html', 'css', 'javascript', 'sql'] as DiffFormat[]).map(
+            (fmt) => (
+              <button
+                key={fmt}
+                type="button"
+                className={`diff-pill-btn ${options.format === fmt ? 'active' : ''}`}
+                onClick={() => updateOption('format', fmt)}
+                data-testid={`format-${fmt}`}
+              >
+                {fmt === 'auto' ? 'Auto-Detect' : fmt.toUpperCase()}
+              </button>
+            )
+          )}
+        </div>
+      </div>
+
       <div className="diff-settings-section">
         <span className="diff-settings-section-title">Granularity:</span>
         <div className="diff-pill-group" role="group" aria-label="Diff Granularity">
@@ -73,6 +92,28 @@ export function DiffSettings({ options, onOptionsChange }: DiffSettingsProps) {
       <div className="diff-settings-divider" />
 
       <div className="diff-options-grid">
+        <label className="diff-checkbox-label" htmlFor="opt-prettify-before-compare">
+          <input
+            id="opt-prettify-before-compare"
+            type="checkbox"
+            checked={options.prettifyBeforeCompare}
+            onChange={(e) => updateOption('prettifyBeforeCompare', e.target.checked)}
+            data-testid="checkbox-prettify-before-compare"
+          />
+          <span>Prettify Before Compare</span>
+        </label>
+
+        <label className="diff-checkbox-label" htmlFor="opt-sort-keys">
+          <input
+            id="opt-sort-keys"
+            type="checkbox"
+            checked={options.sortKeys}
+            onChange={(e) => updateOption('sortKeys', e.target.checked)}
+            data-testid="checkbox-sort-keys"
+          />
+          <span>Sort Keys Alphabetically (JSON/YAML)</span>
+        </label>
+
         <label className="diff-checkbox-label" htmlFor="opt-ignore-whitespace">
           <input
             id="opt-ignore-whitespace"
@@ -120,4 +161,3 @@ export function DiffSettings({ options, onOptionsChange }: DiffSettingsProps) {
     </div>
   );
 }
-

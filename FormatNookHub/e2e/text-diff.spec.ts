@@ -365,5 +365,44 @@ test.describe('Feature: Text Comparison / Diff Checker', () => {
     await expect(page).toHaveTitle(/YAML/i);
     await expect(page.locator('h1.tool-title')).toContainText(/YAML/i);
   });
+
+  // Scenario 23: Format selector and Prettify button work
+  test('23. Format selector and Prettify button work', async ({ page }) => {
+    await page.goto('/tools/diff-checker');
+    const formatSelect = page.getByTestId('select-diff-format');
+    await expect(formatSelect).toBeVisible();
+    await formatSelect.selectOption('json');
+
+    const orig = page.getByTestId('textarea-original-editor');
+    await orig.fill('{"b":2,"a":1}');
+
+    const prettifyBtn = page.getByTestId('btn-prettify');
+    await prettifyBtn.click();
+
+    await expect(orig).toHaveValue(/{\s+"b": 2,\s+"a": 1\s+}/);
+  });
+
+  // Scenario 24: JSON key sorting normalizes unordered structures
+  test('24. JSON key sorting normalizes unordered structures', async ({ page }) => {
+    await page.goto('/tools/diff-checker');
+
+    const formatSelect = page.getByTestId('select-diff-format');
+    await formatSelect.selectOption('json');
+
+    const orig = page.getByTestId('textarea-original-editor');
+    const mod = page.getByTestId('textarea-modified-editor');
+    await orig.fill('{"z": 100, "a": 200}');
+    await mod.fill('{"a": 200, "z": 100}');
+
+    // Open settings and enable sort keys
+    await page.getByTestId('btn-toggle-settings').click();
+    await page.getByTestId('checkbox-sort-keys').check();
+
+    await page.getByTestId('btn-compare').click();
+
+    const banner = page.getByTestId('banner-identical-text');
+    await expect(banner).toBeVisible();
+    await expect(banner).toContainText(/No differences found/i);
+  });
 });
 
