@@ -270,3 +270,46 @@ export function minifyXml(input: string): ToolExecutionResult {
     executionTimeMs: Math.round(performance.now() - start),
   };
 }
+
+/**
+ * Collapses XML into a single line format.
+ */
+export function oneLineXml(input: string): string {
+  const minified = minifyXml(input);
+  return minified.output.replace(/\s*\n\s*/g, ' ').trim();
+}
+
+/**
+ * Escapes XML markup into string literal format.
+ */
+export function escapeXml(input: string): string {
+  return input
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, '\\n')
+    .replace(/\r/g, '\\r')
+    .replace(/\t/g, '\\t');
+}
+
+/**
+ * Unescapes JSON or string literal escaped XML.
+ */
+export function unescapeXml(input: string): string {
+  try {
+    if ((input.startsWith('"') && input.endsWith('"')) || (input.startsWith("'") && input.endsWith("'"))) {
+      try {
+        return JSON.parse(input);
+      } catch {
+        // Fall back to manual unescape
+      }
+    }
+    return input
+      .replace(/\\n/g, '\n')
+      .replace(/\\r/g, '\r')
+      .replace(/\\t/g, '\t')
+      .replace(/\\"/g, '"')
+      .replace(/\\\\/g, '\\');
+  } catch {
+    return input;
+  }
+}

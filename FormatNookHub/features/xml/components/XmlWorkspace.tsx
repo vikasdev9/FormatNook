@@ -1,16 +1,31 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Sparkles, Minimize2, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { IndentOption, ValidationIssue } from '@/types/tool';
-import { formatXml, minifyXml, validateXml } from '../services/xml-service';
-import { CodeEditor } from '@/components/workspace/CodeEditor';
-import { FileDropzone } from '@/components/workspace/FileDropzone';
+import { XmlViewMode } from '../types/xml.types';
+import {
+  formatXml,
+  minifyXml,
+  validateXml,
+  oneLineXml,
+  escapeXml,
+  unescapeXml,
+} from '../services/xml-service';
+import { parseXmlToTree } from '../services/xml-parser-service';
+import { CodeEditor, countLogicalLines } from '@/components/workspace/CodeEditor';
 import { CopyButton } from '@/components/workspace/CopyButton';
 import { DownloadButton } from '@/components/workspace/DownloadButton';
-import { ResetButton } from '@/components/workspace/ResetButton';
 import { ValidationResult } from '@/components/workspace/ValidationResult';
 import { formatByteSize } from '@/lib/file-reader';
+
+import { XmlToolbar } from './XmlToolbar';
+import { XmlTreeView } from './XmlTreeView';
+import { XmlStructuredView } from './XmlStructuredView';
+import { XmlXPathModal } from './XmlXPathModal';
+import { XmlConverterModal } from './XmlConverterModal';
+import { XmlSpecializedModal } from './XmlSpecializedModal';
+import { XmlDiffModal } from './XmlDiffModal';
+import { XmlShortcutsModal } from './XmlShortcutsModal';
 
 interface XmlWorkspaceProps {
   initialMode?: 'format' | 'validate';
@@ -32,15 +47,53 @@ const DEFAULT_SAMPLE_XML = `<?xml version="1.0" encoding="UTF-8"?>
 </project>`;
 
 export function XmlWorkspace({ initialMode = 'format' }: XmlWorkspaceProps) {
+  // Input / Output states
   const [input, setInput] = useState<string>(DEFAULT_SAMPLE_XML);
   const [output, setOutput] = useState<string>('');
   const [indent, setIndent] = useState<IndentOption>('2');
-  const [validationState, setValidationState] = useState<{ isValid: boolean | null; issues: ValidationIssue[] }>({
+
+  // View Mode & Action State
+  const [viewMode, setViewMode] = useState<XmlViewMode>('code');
+  const [activeAction, setActiveAction] = useState<string>(initialMode);
+
+  // Diagnostics & Status
+  const [validationState, setValidationState] = useState<{
+    isValid: boolean | null;
+    issues: ValidationIssue[];
+  }>({
     isValid: null,
     issues: [],
   });
-  const [activeAction, setActiveAction] = useState<string>(initialMode);
+  const [statusMessage, setStatusMessage] = useState<string>('Ready');
+  const [statusType, setStatusType] = useState<'ready' | 'formatting' | 'success' | 'error'>('ready');
 
+  // Editor Appearance Controls
+  const [useMonaco, setUseMonaco] = useState<boolean>(false);
+  const [wordWrap, setWordWrap] = useState<boolean>(true);
+  const [fontSize, setFontSize] = useState<number>(13);
+  const [isFullScreen, setIsFullScreen] = useState<boolean>(false);
+  const [panelsRatio, setPanelsRatio] = useState<number>(50);
+
+  // Modals
+  const [isXPathOpen, setIsXPathOpen] = useState<boolean>(false);
+  const [isConverterOpen, setIsConverterOpen] = useState<boolean>(false);
+  const [isSpecializedOpen, setIsSpecializedOpen] = useState<boolean>(false);
+  const [isDiffOpen, setIsDiffOpen] = useState<boolean>(false);
+  const [isShortcutsOpen, setIsShortcutsOpen] = useState<boolean>(false);
+
+  // Splitter Ref
+  const gridRef = useRef<HTMLDivElement>(null);
+  const isDraggingRef = useRef<boolean>(false);
+
+  // Parsed Tree representation for visual view
+  const parsedTree = useMemo(() => {
+    if (viewMode !== 'tree' && viewMode !== 'structured') return null;
+    const textToParse = output && validationState.isValid ? output : input;
+    const res = parseXmlToTree(textToParse);
+    return res.tree;
+  }, [viewMode, input, output, validationState.isValid]);
+
+  // Initial execution on mount
   useEffect(() => {
     if (initialMode === 'validate') {
       handleValidate();
@@ -50,159 +103,333 @@ export function XmlWorkspace({ initialMode = 'format' }: XmlWorkspaceProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleFormat = () => {
-    setActiveAction('format');
-    const result = formatXml(input, indent);
-    setOutput(result.output);
-    setValidationState({ isValid: result.isValid, issues: result.issues });
-  };
+  // Primary Action: Format / Beautify
+  const handleFormat = useCallback(
+    (customInput?: string, customIndent?: IndentOption) => {
+      setActiveAction('format');
+      const text = customInput !== undefined ? customInput : input;
+      const curIndent = customIndent || indent;
 
-  const handleMinify = () => {
+      if (!text || !text.trim()) {
+        setOutput('');
+        setValidationState({ isValid: null, issues: [] });
+        setStatusMessage('Ready');
+        setStatusType('ready');
+        return;
+      }
+
+      setStatusMessage('Formatting...');
+      setStatusType('formatting');
+
+      const result = formatXml(text, curIndent);
+      setOutput(result.output);
+      setValidationState({ isValid: result.isValid, issues: result.issues });
+      setStatusMessage(result.isValid ? 'XML Beautified' : 'Malformed XML');
+      setStatusType(result.isValid ? 'success' : 'error');
+    },
+    [input, indent]
+  );
+
+  // Primary Action: Minify
+  const handleMinify = useCallback(() => {
     setActiveAction('minify');
     const result = minifyXml(input);
     setOutput(result.output);
     setValidationState({ isValid: result.isValid, issues: result.issues });
-  };
+    setStatusMessage(result.isValid ? 'XML Minified' : 'Minify Failed');
+    setStatusType(result.isValid ? 'success' : 'error');
+  }, [input]);
 
-  const handleValidate = () => {
+  // Primary Action: Validate
+  const handleValidate = useCallback(() => {
     setActiveAction('validate');
     const result = validateXml(input);
     setValidationState({ isValid: result.isValid, issues: result.issues });
-    if (result.isValid) {
+    setStatusMessage(result.isValid ? 'Valid XML' : 'Syntax Issues Found');
+    setStatusType(result.isValid ? 'success' : 'error');
+    if (result.isValid && !output) {
       setOutput(input);
     }
-  };
+  }, [input, output]);
 
+  // Action: Collapse into One-Line
+  const handleOneLine = useCallback(() => {
+    const oneLined = oneLineXml(input);
+    setOutput(oneLined);
+    setStatusMessage('One-Line Converted');
+    setStatusType('success');
+  }, [input]);
+
+  // Action: Escape string
+  const handleEscape = useCallback(() => {
+    const escaped = escapeXml(input);
+    setOutput(escaped);
+    setStatusMessage('String Escaped');
+    setStatusType('success');
+  }, [input]);
+
+  // Action: Unescape string
+  const handleUnescape = useCallback(() => {
+    const unescaped = unescapeXml(input);
+    setInput(unescaped);
+    handleFormat(unescaped);
+  }, [input, handleFormat]);
+
+  // Reset workspace
   const handleReset = () => {
     setInput('');
     setOutput('');
     setValidationState({ isValid: null, issues: [] });
+    setStatusMessage('Ready');
+    setStatusType('ready');
   };
 
+  // File loaded via dropzone
   const handleFileLoaded = (content: string) => {
     setInput(content);
-    const result = formatXml(content, indent);
-    setOutput(result.output);
-    setValidationState({ isValid: result.isValid, issues: result.issues });
+    handleFormat(content, indent);
   };
 
-  const inputBytes = new Blob([input]).size;
-  const outputBytes = new Blob([output]).size;
+  // Sample loaded from presets
+  const handleSelectSample = (sampleData: string) => {
+    setInput(sampleData);
+    handleFormat(sampleData, indent);
+  };
+
+  // Global Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        handleFormat();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'V' || e.key === 'v')) {
+        e.preventDefault();
+        handleValidate();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'M' || e.key === 'm')) {
+        e.preventDefault();
+        handleMinify();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'X' || e.key === 'x')) {
+        e.preventDefault();
+        setIsXPathOpen(true);
+      }
+      if (e.key === 'Escape') {
+        setIsXPathOpen(false);
+        setIsConverterOpen(false);
+        setIsSpecializedOpen(false);
+        setIsDiffOpen(false);
+        setIsShortcutsOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleFormat, handleValidate, handleMinify]);
+
+  // Resizable Panels Handlers
+  const handleMouseDownResize = (e: React.MouseEvent) => {
+    e.preventDefault();
+    isDraggingRef.current = true;
+    document.addEventListener('mousemove', handleMouseMoveResize);
+    document.addEventListener('mouseup', handleMouseUpResize);
+  };
+
+  const handleMouseMoveResize = (e: MouseEvent) => {
+    if (!isDraggingRef.current || !gridRef.current) return;
+    const rect = gridRef.current.getBoundingClientRect();
+    const offsetX = e.clientX - rect.left;
+    const ratio = Math.max(20, Math.min(80, (offsetX / rect.width) * 100));
+    setPanelsRatio(ratio);
+  };
+
+  const handleMouseUpResize = () => {
+    isDraggingRef.current = false;
+    document.removeEventListener('mousemove', handleMouseMoveResize);
+    document.removeEventListener('mouseup', handleMouseUpResize);
+  };
+
+  const inputBytes = useMemo(() => new Blob([input]).size, [input]);
+  const outputBytes = useMemo(() => new Blob([output]).size, [output]);
+  const inputLines = useMemo(() => countLogicalLines(input), [input]);
+  const outputLines = useMemo(() => countLogicalLines(output), [output]);
 
   return (
-    <div className="tool-workspace-container">
-      <div className="tool-toolbar">
-        <div className="toolbar-group-left">
-          <button
-            className={`btn ${activeAction === 'format' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={handleFormat}
-            aria-label="Format and beautify XML"
-          >
-            <Sparkles size={15} />
-            <span>Beautify</span>
-          </button>
+    <div
+      className={`tool-workspace-container ${isFullScreen ? 'workspace-fullscreen' : ''}`}
+      data-testid="xml-workspace"
+    >
+      {/* Comprehensive Workspace Toolbar */}
+      <XmlToolbar
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        activeAction={activeAction}
+        onFormat={() => handleFormat()}
+        onMinify={handleMinify}
+        onValidate={handleValidate}
+        onOneLine={handleOneLine}
+        onOpenXPath={() => setIsXPathOpen(true)}
+        onOpenConverter={() => setIsConverterOpen(true)}
+        onOpenSpecialized={() => setIsSpecializedOpen(true)}
+        onOpenDiff={() => setIsDiffOpen(true)}
+        onOpenShortcuts={() => setIsShortcutsOpen(true)}
+        onEscape={handleEscape}
+        onUnescape={handleUnescape}
+        isFullScreen={isFullScreen}
+        onToggleFullScreen={() => setIsFullScreen(!isFullScreen)}
+        indent={indent}
+        onIndentChange={(newIndent) => {
+          setIndent(newIndent);
+          handleFormat(input, newIndent);
+        }}
+        onSelectSample={handleSelectSample}
+        onFileLoaded={handleFileLoaded}
+        onReset={handleReset}
+        useMonaco={useMonaco}
+        onToggleMonaco={() => setUseMonaco(!useMonaco)}
+        wordWrap={wordWrap}
+        onToggleWordWrap={() => setWordWrap(!wordWrap)}
+        fontSize={fontSize}
+        onFontSizeChange={setFontSize}
+        statusMessage={statusMessage}
+        statusType={statusType}
+      />
 
-          <button
-            className={`btn ${activeAction === 'minify' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={handleMinify}
-            aria-label="Minify XML"
-          >
-            <Minimize2 size={15} />
-            <span>Minify</span>
-          </button>
-
-          <button
-            className={`btn ${activeAction === 'validate' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={handleValidate}
-            aria-label="Validate XML well-formedness"
-          >
-            <CheckCircle2 size={15} />
-            <span>Validate</span>
-          </button>
-
-          <div className="options-control-group">
-            <label htmlFor="xml-indent">Indent:</label>
-            <select
-              id="xml-indent"
-              className="select-control"
-              value={indent}
-              onChange={(e) => {
-                const nextIndent = e.target.value as IndentOption;
-                setIndent(nextIndent);
-                if (output) {
-                  const res = formatXml(input, nextIndent);
-                  setOutput(res.output);
-                }
-              }}
-            >
-              <option value="2">2 Spaces</option>
-              <option value="4">4 Spaces</option>
-              <option value="tab">Tabs</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="toolbar-group-right">
-          <FileDropzone
-            onFileLoaded={handleFileLoaded}
-            acceptExtensions={['.xml', '.xsd', '.svg', '.txt']}
-          />
-          <ResetButton onReset={handleReset} />
-        </div>
-      </div>
-
+      {/* Validation Result Diagnostic Banner */}
       <ValidationResult isValid={validationState.isValid} issues={validationState.issues} />
 
-      <div className="editor-workspace-grid">
-        <div className="editor-panel">
-          <div className="panel-header">
-            <div className="panel-title-group">
-              <span>Input (Raw XML)</span>
-              <span className="panel-stats">
-                {formatByteSize(inputBytes)} &bull; {input.split('\n').length} lines
-              </span>
+      {/* Main View Area */}
+      {viewMode === 'code' && (
+        <div
+          ref={gridRef}
+          className="editor-workspace-grid json-resizable-grid"
+          data-testid="xml-code-view"
+          style={
+            {
+              '--panels-left': `${panelsRatio}fr`,
+              '--panels-right': `${100 - panelsRatio}fr`,
+            } as React.CSSProperties
+          }
+        >
+          {/* Input Panel */}
+          <div className="editor-panel" data-testid="xml-input-panel">
+            <div className="panel-header">
+              <div className="panel-title-group">
+                <span>Original Input (Raw XML)</span>
+                <span className="panel-stats">
+                  {inputLines.toLocaleString()} {inputLines === 1 ? 'Line' : 'Lines'} &bull; {formatByteSize(inputBytes)}
+                </span>
+              </div>
+              <div className="panel-actions">
+                <CopyButton text={input} label="Copy" />
+              </div>
             </div>
-            <div className="panel-actions">
-              <CopyButton text={input} label="Copy" />
-            </div>
-          </div>
-          <div className="panel-body">
-            <CodeEditor
-              value={input}
-              onChange={setInput}
-              language="xml"
-              placeholder="Paste unformatted or raw XML markup here..."
-            />
-          </div>
-        </div>
-
-        <div className="editor-panel">
-          <div className="panel-header">
-            <div className="panel-title-group">
-              <span>Output (Processed XML)</span>
-              <span className="panel-stats">
-                {formatByteSize(outputBytes)} &bull; {output.split('\n').length} lines
-              </span>
-            </div>
-            <div className="panel-actions">
-              <CopyButton text={output} label="Copy Output" />
-              <DownloadButton
-                content={output}
-                fileName="formatted.xml"
-                mimeType="application/xml"
+            <div className="panel-body">
+              <CodeEditor
+                value={input}
+                onChange={setInput}
+                language="xml"
+                placeholder="Paste XML document here..."
+                useMonaco={useMonaco}
+                fontSize={fontSize}
+                wordWrap={wordWrap}
+                footerLabel="XML Input"
               />
             </div>
           </div>
-          <div className="panel-body">
-            <CodeEditor
-              value={output}
-              readOnly
-              language="xml"
-              placeholder="Formatted XML output will appear here..."
-            />
+
+          {/* Draggable Resizer Gutter */}
+          <div
+            className="splitter-gutter"
+            onMouseDown={handleMouseDownResize}
+            title="Drag to resize editor panels"
+            data-testid="panel-resizer"
+          />
+
+          {/* Output Panel */}
+          <div className="editor-panel" data-testid="xml-output-panel">
+            <div className="panel-header">
+              <div className="panel-title-group">
+                <span>Formatted Output</span>
+                <span className="panel-stats">
+                  {outputLines.toLocaleString()} {outputLines === 1 ? 'Line' : 'Lines'} &bull; {formatByteSize(outputBytes)}
+                </span>
+              </div>
+              <div className="panel-actions">
+                <CopyButton text={output} label="Copy Output" />
+                <DownloadButton
+                  content={output}
+                  fileName="formatted.xml"
+                  mimeType="application/xml"
+                />
+              </div>
+            </div>
+            <div className="panel-body">
+              <CodeEditor
+                value={output}
+                readOnly
+                language="xml"
+                placeholder="Formatted XML will appear here..."
+                useMonaco={useMonaco}
+                fontSize={fontSize}
+                wordWrap={wordWrap}
+                footerLabel="Formatted XML"
+              />
+            </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* Visual Tree View */}
+      {viewMode === 'tree' && (
+        <div style={{ flex: 1, minHeight: '520px', border: '1px solid var(--border-subtle)', borderRadius: '6px', overflow: 'hidden' }}>
+          <XmlTreeView rootNode={parsedTree} />
+        </div>
+      )}
+
+      {/* Structured Elements Grid */}
+      {viewMode === 'structured' && (
+        <div style={{ flex: 1, minHeight: '520px', border: '1px solid var(--border-subtle)', borderRadius: '6px', overflow: 'hidden' }}>
+          <XmlStructuredView rootNode={parsedTree} />
+        </div>
+      )}
+
+      {/* Modals */}
+      <XmlXPathModal
+        isOpen={isXPathOpen}
+        onClose={() => setIsXPathOpen(false)}
+        xmlInput={output || input}
+      />
+
+      <XmlConverterModal
+        isOpen={isConverterOpen}
+        onClose={() => setIsConverterOpen(false)}
+        currentXml={output || input}
+        onApplyToWorkspace={(newContent) => {
+          setInput(newContent);
+          handleFormat(newContent);
+        }}
+      />
+
+      <XmlSpecializedModal
+        isOpen={isSpecializedOpen}
+        onClose={() => setIsSpecializedOpen(false)}
+        xmlInput={output || input}
+        onLoadSample={handleSelectSample}
+      />
+
+      <XmlDiffModal
+        isOpen={isDiffOpen}
+        onClose={() => setIsDiffOpen(false)}
+        originalXml={input}
+        modifiedXml={output}
+      />
+
+      <XmlShortcutsModal
+        isOpen={isShortcutsOpen}
+        onClose={() => setIsShortcutsOpen(false)}
+      />
     </div>
   );
 }
