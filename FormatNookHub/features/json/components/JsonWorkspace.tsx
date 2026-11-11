@@ -1,16 +1,44 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Sparkles, Minimize2, CheckCircle2, Wrench, FileUp } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import {
+  Sparkles,
+  Minimize2,
+  CheckCircle2,
+  Wrench,
+  FileUp,
+  AlertTriangle,
+  Loader2,
+  XCircle,
+  Copy,
+  Download,
+} from 'lucide-react';
 import { IndentOption, ValidationIssue } from '@/types/tool';
 import { formatJson, minifyJson, validateJson, repairJson } from '../services/json-service';
-import { CodeEditor } from '@/components/workspace/CodeEditor';
-import { FileDropzone } from '@/components/workspace/FileDropzone';
+import { computeJsonStats } from '../services/json-stats-service';
+import { jsonWorkerClient } from '../services/json-worker-client';
+import {
+  getPreferences,
+  savePreferences,
+  addRecentFile,
+} from '../services/json-storage-service';
+import { JsonViewMode } from '../types/json.types';
+import { CodeEditor, countLogicalLines } from '@/components/workspace/CodeEditor';
 import { CopyButton } from '@/components/workspace/CopyButton';
 import { DownloadButton } from '@/components/workspace/DownloadButton';
-import { ResetButton } from '@/components/workspace/ResetButton';
 import { ValidationResult } from '@/components/workspace/ValidationResult';
 import { formatByteSize } from '@/lib/file-reader';
+
+import { JsonToolbar } from './JsonToolbar';
+import { JsonTreeView } from './JsonTreeView';
+import { JsonTableView } from './JsonTableView';
+import { JsonPathPanel } from './JsonPathPanel';
+import { JsonStatsModal } from './JsonStatsModal';
+import { JsonTransformModal } from './JsonTransformModal';
+import { JsonRepairModal } from './JsonRepairModal';
+import { JsonShortcutsModal } from './JsonShortcutsModal';
+import { JsonSchemaModal } from './JsonSchemaModal';
+import { JsonRecentModal } from './JsonRecentModal';
 
 interface JsonWorkspaceProps {
   initialMode?: 'format' | 'validate' | 'minify';
@@ -31,15 +59,373 @@ const DEFAULT_SAMPLE_JSON = `{
   }
 }`;
 
+const LARGE_FILE_THRESHOLD_BYTES = 2.5 * 1024 * 1024; // 2.5 MB
+
 export function JsonWorkspace({ initialMode = 'format' }: JsonWorkspaceProps) {
   const [input, setInput] = useState<string>(DEFAULT_SAMPLE_JSON);
   const [output, setOutput] = useState<string>('');
+  const [viewMode, setViewMode] = useState<JsonViewMode>('code');
   const [indent, setIndent] = useState<IndentOption>('2');
+  const [activeAction, setActiveAction] = useState<string>(initialMode);
   const [validationState, setValidationState] = useState<{ isValid: boolean | null; issues: ValidationIssue[] }>({
     isValid: null,
     issues: [],
   });
-  const [activeAction, setActiveAction] = useState<string>(initialMode);
+
+  // Editor preferences & layout
+  const [useMonaco, setUseMonaco] = useState<boolean>(false);
+  const [wordWrap, setWordWrap] = useState<boolean>(true);
+  const [fontSize, setFontSize] = useState<number>(13);
+  const [isFullScreen, setIsFullScreen] = useState<boolean>(false);
+  const [panelsRatio, setPanelsRatio] = useState<number>(50); // percentage for input panel
+  const [mobileTab, setMobileTab] = useState<'both' | 'input' | 'output'>('both');
+  const [autoFormat, setAutoFormat] = useState<boolean>(true);
+  const [isOutdated, setIsOutdated] = useState<boolean>(false);
+  const [statusMessage, setStatusMessage] = useState<string>('Ready');
+  const [statusType, setStatusType] = useState<'ready' | 'formatting' | 'success' | 'error' | 'outdated'>('ready');
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isInitialMount = useRef<boolean>(true);
+
+  // Panels & Modals
+  const [isJsonPathOpen, setIsJsonPathOpen] = useState<boolean>(false);
+  const [isStatsOpen, setIsStatsOpen] = useState<boolean>(false);
+  const [isTransformOpen, setIsTransformOpen] = useState<boolean>(false);
+  const [isRepairOpen, setIsRepairOpen] = useState<boolean>(false);
+  const [isShortcutsOpen, setIsShortcutsOpen] = useState<boolean>(false);
+  const [isSchemaOpen, setIsSchemaOpen] = useState<boolean>(false);
+  const [isRecentOpen, setIsRecentOpen] = useState<boolean>(false);
+
+  // Worker & Progress State
+  const [isWorkerRunning, setIsWorkerRunning] = useState<boolean>(false);
+  const [workerProgressMsg, setWorkerProgressMsg] = useState<string>('');
+
+  const gridRef = useRef<HTMLDivElement>(null);
+  const isDraggingRef = useRef<boolean>(false);
+
+  const inputBytes = useMemo(() => new Blob([input]).size, [input]);
+  const outputBytes = useMemo(() => new Blob([output]).size, [output]);
+  const inputLines = useMemo(() => countLogicalLines(input), [input]);
+  const outputLines = useMemo(() => countLogicalLines(output), [output]);
+  const isLargeFile = inputBytes > LARGE_FILE_THRESHOLD_BYTES;
+
+  // Parsed representation (safe memoized)
+  const parsedData = useMemo(() => {
+    const textToParse = output && validationState.isValid ? output : input;
+    if (!textToParse || !textToParse.trim()) return null;
+    try {
+      return JSON.parse(textToParse);
+    } catch {
+      return null;
+    }
+  }, [input, output, validationState.isValid]);
+
+  // Compute metrics for stats modal
+  const stats = useMemo(() => {
+    if (!isStatsOpen) return null;
+    return computeJsonStats(output || input, parsedData);
+  }, [isStatsOpen, output, input, parsedData]);
+
+  // Load saved preferences on mount
+  useEffect(() => {
+    const prefs = getPreferences();
+    if (prefs.fontSize) setFontSize(prefs.fontSize);
+    if (prefs.indent) setIndent(prefs.indent as IndentOption);
+    if (prefs.wordWrap !== undefined) setWordWrap(prefs.wordWrap);
+    if (prefs.panelsRatio) setPanelsRatio(prefs.panelsRatio);
+    if (prefs.autoFormat !== undefined) setAutoFormat(prefs.autoFormat);
+  }, []);
+
+  // Handle format with Web Worker for large files
+  const handleFormat = useCallback(
+    async (overrideInput?: string, overrideIndent?: IndentOption, isManual = true) => {
+      setActiveAction('format');
+      const text = overrideInput !== undefined ? overrideInput : input;
+      const curIndent = overrideIndent || indent;
+
+      if (!text || !text.trim()) {
+        setOutput('');
+        setValidationState({ isValid: null, issues: [] });
+        setIsOutdated(false);
+        setStatusMessage('Ready');
+        setStatusType('ready');
+        return;
+      }
+
+      const size = new Blob([text]).size;
+      setStatusType('formatting');
+      setStatusMessage('Formatting...');
+
+      if (size > LARGE_FILE_THRESHOLD_BYTES) {
+        setIsWorkerRunning(true);
+        setWorkerProgressMsg(`Formatting large JSON (${formatByteSize(size)}) in background worker...`);
+        try {
+          const res = await jsonWorkerClient.format(text, curIndent);
+          if (res.success && res.data !== undefined) {
+            setOutput(res.data);
+            setValidationState({ isValid: true, issues: [] });
+            setIsOutdated(false);
+            setStatusMessage('Formatting successful');
+            setStatusType('success');
+          } else {
+            setValidationState({
+              isValid: false,
+              issues: [{ message: res.error || 'Formatting failed', severity: 'error' }],
+            });
+            setIsOutdated(true);
+            setStatusMessage('Formatting failed');
+            setStatusType('error');
+          }
+        } finally {
+          setIsWorkerRunning(false);
+          setWorkerProgressMsg('');
+        }
+      } else {
+        const val = validateJson(text);
+        if (!val.isValid) {
+          setValidationState({ isValid: false, issues: val.issues });
+          setIsOutdated(true);
+          setStatusMessage('Invalid JSON - syntax error detected');
+          setStatusType('error');
+          return;
+        }
+
+        const result = formatJson(text, curIndent);
+        setOutput(result.output);
+        setValidationState({ isValid: true, issues: [] });
+        setIsOutdated(false);
+        setStatusMessage(isManual ? 'Formatting successful' : 'Valid JSON');
+        setStatusType('success');
+      }
+    },
+    [input, indent]
+  );
+
+  // Automatic Formatting on Input Change with Debounce
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+
+    if (!input.trim()) {
+      setOutput('');
+      setValidationState({ isValid: null, issues: [] });
+      setIsOutdated(false);
+      setStatusMessage('Ready');
+      setStatusType('ready');
+      return;
+    }
+
+    if (!autoFormat) {
+      const val = validateJson(input);
+      setValidationState({ isValid: val.isValid, issues: val.issues });
+      setIsOutdated(true);
+      setStatusMessage(val.isValid ? 'Valid JSON (Click Beautify to format)' : 'Invalid JSON');
+      setStatusType(val.isValid ? 'ready' : 'error');
+      return;
+    }
+
+    // Mark output as outdated while typing until debounce completes
+    setIsOutdated(true);
+    setStatusMessage('Formatting...');
+    setStatusType('formatting');
+
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    const size = new Blob([input]).size;
+    if (size > LARGE_FILE_THRESHOLD_BYTES) {
+      setStatusMessage('Large file detected - click Beautify to format');
+      setStatusType('ready');
+      return;
+    }
+
+    debounceTimerRef.current = setTimeout(() => {
+      handleFormat(input, indent, false);
+    }, 350);
+
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, [input, autoFormat, indent, handleFormat]);
+
+  // Toggle Auto Format handler
+  const handleToggleAutoFormat = useCallback(() => {
+    setAutoFormat((prev) => {
+      const next = !prev;
+      savePreferences({ autoFormat: next });
+      if (next && input) {
+        handleFormat(input, indent, false);
+      }
+      return next;
+    });
+  }, [input, indent, handleFormat]);
+
+  // Handle minify with Web Worker for large files
+  const handleMinify = useCallback(async () => {
+    setActiveAction('minify');
+    const size = new Blob([input]).size;
+
+    if (size > LARGE_FILE_THRESHOLD_BYTES) {
+      setIsWorkerRunning(true);
+      setWorkerProgressMsg(`Minifying large JSON (${formatByteSize(size)}) in background worker...`);
+      try {
+        const res = await jsonWorkerClient.minify(input);
+        if (res.success && res.data !== undefined) {
+          setOutput(res.data);
+          setValidationState({ isValid: true, issues: [] });
+          setIsOutdated(false);
+          setStatusMessage('Minification successful');
+          setStatusType('success');
+        } else {
+          setValidationState({
+            isValid: false,
+            issues: [{ message: res.error || 'Minification failed', severity: 'error' }],
+          });
+          setIsOutdated(true);
+          setStatusMessage('Minification failed');
+          setStatusType('error');
+        }
+      } finally {
+        setIsWorkerRunning(false);
+        setWorkerProgressMsg('');
+      }
+    } else {
+      const val = validateJson(input);
+      if (!val.isValid) {
+        setValidationState({ isValid: false, issues: val.issues });
+        setIsOutdated(true);
+        setStatusMessage('Invalid JSON - syntax error detected');
+        setStatusType('error');
+        return;
+      }
+
+      const result = minifyJson(input);
+      setOutput(result.output);
+      setValidationState({ isValid: true, issues: [] });
+      setIsOutdated(false);
+      setStatusMessage('Minification successful');
+      setStatusType('success');
+    }
+  }, [input]);
+
+  // Handle validate
+  const handleValidate = useCallback(() => {
+    setActiveAction('validate');
+    const result = validateJson(input);
+    setValidationState({ isValid: result.isValid, issues: result.issues });
+    if (result.isValid) {
+      setOutput(input);
+      setIsOutdated(false);
+      setStatusMessage('Valid JSON');
+      setStatusType('success');
+    } else {
+      setIsOutdated(true);
+      setStatusMessage('Invalid JSON - syntax error detected');
+      setStatusType('error');
+    }
+  }, [input]);
+
+  // Auto Repair direct action
+  const handleApplyRepair = useCallback(
+    (repairedText: string) => {
+      setInput(repairedText);
+      handleFormat(repairedText, indent, true);
+    },
+    [handleFormat, indent]
+  );
+
+  // Transform apply
+  const handleApplyTransform = useCallback(
+    (transformedText: string) => {
+      setInput(transformedText);
+      setOutput(transformedText);
+      setIsOutdated(false);
+      const val = validateJson(transformedText);
+      setValidationState({ isValid: val.isValid, issues: val.issues });
+      setStatusMessage(val.isValid ? 'Transform applied' : 'Invalid JSON result');
+      setStatusType(val.isValid ? 'success' : 'error');
+    },
+    []
+  );
+
+  // Reset workspace
+  const handleReset = useCallback(() => {
+    setInput('');
+    setOutput('');
+    setValidationState({ isValid: null, issues: [] });
+    setIsOutdated(false);
+    setStatusMessage('Ready');
+    setStatusType('ready');
+  }, []);
+
+  // File loaded via dropzone or picker
+  const handleFileLoaded = useCallback(
+    (content: string, fileName?: string) => {
+      setInput(content);
+      handleFormat(content);
+      addRecentFile(fileName || 'loaded_file.json', content);
+    },
+    [handleFormat]
+  );
+
+  // Sample selected
+  const handleSelectSample = useCallback(
+    (sampleData: string) => {
+      setInput(sampleData);
+      handleFormat(sampleData);
+    },
+    [handleFormat]
+  );
+
+  // Cancel background worker
+  const handleCancelWorker = () => {
+    jsonWorkerClient.terminate();
+    setIsWorkerRunning(false);
+    setWorkerProgressMsg('');
+  };
+
+  // Resizable Panels Mouse Handlers
+  const handleMouseDownResizer = (e: React.MouseEvent) => {
+    e.preventDefault();
+    isDraggingRef.current = true;
+    let currentRatio = panelsRatio;
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      if (!isDraggingRef.current || !gridRef.current) return;
+      const rect = gridRef.current.getBoundingClientRect();
+      const newRatio = ((moveEvent.clientX - rect.left) / rect.width) * 100;
+      if (newRatio >= 20 && newRatio <= 80) {
+        currentRatio = Math.round(newRatio);
+        gridRef.current.style.setProperty('--panels-left', `${currentRatio}fr`);
+        gridRef.current.style.setProperty('--panels-right', `${100 - currentRatio}fr`);
+        setPanelsRatio(currentRatio);
+      }
+    };
+
+    const handleMouseUp = () => {
+      isDraggingRef.current = false;
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      savePreferences({ panelsRatio: currentRatio });
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+  };
+
+  // Reset panels ratio to 50/50
+  const handleResetRatio = useCallback(() => {
+    setPanelsRatio(50);
+    if (gridRef.current) {
+      gridRef.current.style.setProperty('--panels-left', '50fr');
+      gridRef.current.style.setProperty('--panels-right', '50fr');
+    }
+    savePreferences({ panelsRatio: 50 });
+  }, []);
 
   // Auto-format or initialize on mount
   useEffect(() => {
@@ -53,183 +439,341 @@ export function JsonWorkspace({ initialMode = 'format' }: JsonWorkspaceProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleFormat = () => {
-    setActiveAction('format');
-    const result = formatJson(input, indent);
-    setOutput(result.output);
-    setValidationState({ isValid: result.isValid, issues: result.issues });
-  };
+  // Global Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isCmdOrCtrl = e.metaKey || e.ctrlKey;
 
-  const handleMinify = () => {
-    setActiveAction('minify');
-    const result = minifyJson(input);
-    setOutput(result.output);
-    setValidationState({ isValid: result.isValid, issues: result.issues });
-  };
+      if (isCmdOrCtrl && e.key === 'Enter') {
+        e.preventDefault();
+        handleFormat();
+      } else if (isCmdOrCtrl && e.shiftKey && (e.key === 'M' || e.key === 'm')) {
+        e.preventDefault();
+        handleMinify();
+      } else if (isCmdOrCtrl && e.shiftKey && (e.key === 'V' || e.key === 'v')) {
+        e.preventDefault();
+        handleValidate();
+      } else if (isCmdOrCtrl && e.shiftKey && (e.key === 'R' || e.key === 'r')) {
+        e.preventDefault();
+        setIsRepairOpen(true);
+      } else if (e.key === 'Escape') {
+        setIsStatsOpen(false);
+        setIsTransformOpen(false);
+        setIsRepairOpen(false);
+        setIsShortcutsOpen(false);
+        setIsSchemaOpen(false);
+        setIsRecentOpen(false);
+        if (isFullScreen) setIsFullScreen(false);
+      }
+    };
 
-  const handleValidate = () => {
-    setActiveAction('validate');
-    const result = validateJson(input);
-    setValidationState({ isValid: result.isValid, issues: result.issues });
-    if (result.isValid) {
-      setOutput(input);
-    }
-  };
-
-  const handleRepair = () => {
-    setActiveAction('repair');
-    const repaired = repairJson(input);
-    setInput(repaired);
-    const result = formatJson(repaired, indent);
-    setOutput(result.output);
-    setValidationState({ isValid: result.isValid, issues: result.issues });
-  };
-
-  const handleReset = () => {
-    setInput('');
-    setOutput('');
-    setValidationState({ isValid: null, issues: [] });
-  };
-
-  const handleFileLoaded = (content: string) => {
-    setInput(content);
-    const result = formatJson(content, indent);
-    setOutput(result.output);
-    setValidationState({ isValid: result.isValid, issues: result.issues });
-  };
-
-  const inputBytes = new Blob([input]).size;
-  const outputBytes = new Blob([output]).size;
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleFormat, handleMinify, handleValidate, isFullScreen]);
 
   return (
-    <div className="tool-workspace-container">
-      {/* Top Toolbar */}
-      <div className="tool-toolbar">
-        <div className="toolbar-group-left">
-          <button
-            className={`btn ${activeAction === 'format' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={handleFormat}
-            aria-label="Format and beautify JSON"
-          >
-            <Sparkles size={15} />
-            <span>Beautify</span>
-          </button>
+    <div
+      className={`tool-workspace-container json-workspace-root ${isFullScreen ? 'json-fullscreen-mode' : ''}`}
+      data-testid="json-workspace"
+    >
+      {/* Top Main & Secondary Toolbars */}
+      <JsonToolbar
+        viewMode={viewMode}
+        onViewModeChange={(m) => {
+          setViewMode(m);
+          savePreferences({ viewMode: m });
+        }}
+        activeAction={activeAction}
+        onFormat={() => handleFormat()}
+        onMinify={handleMinify}
+        onValidate={handleValidate}
+        onOpenRepair={() => setIsRepairOpen(true)}
+        onOpenTransform={() => setIsTransformOpen(true)}
+        onToggleJsonPath={() => setIsJsonPathOpen(!isJsonPathOpen)}
+        isJsonPathOpen={isJsonPathOpen}
+        onOpenSchema={() => setIsSchemaOpen(true)}
+        onOpenStats={() => setIsStatsOpen(true)}
+        onOpenShortcuts={() => setIsShortcutsOpen(true)}
+        onOpenRecent={() => setIsRecentOpen(true)}
+        isFullScreen={isFullScreen}
+        onToggleFullScreen={() => setIsFullScreen(!isFullScreen)}
+        indent={indent}
+        onIndentChange={(newIndent) => {
+          setIndent(newIndent);
+          savePreferences({ indent: newIndent });
+          if (output) handleFormat(input, newIndent);
+        }}
+        onSelectSample={handleSelectSample}
+        onFileLoaded={handleFileLoaded}
+        onReset={handleReset}
+        useMonaco={useMonaco}
+        onToggleMonaco={() => setUseMonaco(!useMonaco)}
+        wordWrap={wordWrap}
+        onToggleWordWrap={() => {
+          const next = !wordWrap;
+          setWordWrap(next);
+          savePreferences({ wordWrap: next });
+        }}
+        fontSize={fontSize}
+        onFontSizeChange={(size) => {
+          setFontSize(size);
+          savePreferences({ fontSize: size });
+        }}
+        panelsRatio={panelsRatio}
+        onResetPanelsRatio={handleResetRatio}
+        autoFormat={autoFormat}
+        onToggleAutoFormat={handleToggleAutoFormat}
+        statusMessage={statusMessage}
+        statusType={statusType}
+      />
 
-          <button
-            className={`btn ${activeAction === 'minify' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={handleMinify}
-            aria-label="Minify JSON"
-          >
-            <Minimize2 size={15} />
-            <span>Minify</span>
-          </button>
+      {/* Large File & Worker Processing Indicator */}
+      {isLargeFile && (
+        <div className="json-large-file-banner" data-testid="large-file-banner">
+          <div className="banner-info">
+            <AlertTriangle size={16} className="text-warning" />
+            <span>
+              Large file detected ({formatByteSize(inputBytes)}). Operating in background Web Worker mode to keep the browser fast and responsive.
+            </span>
+          </div>
+          {isWorkerRunning && (
+            <div className="banner-worker-status">
+              <Loader2 size={14} className="spinner" />
+              <span>{workerProgressMsg}</span>
+              <button className="btn btn-secondary btn-xs" onClick={handleCancelWorker}>
+                <XCircle size={12} />
+                <span>Cancel</span>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
-          <button
-            className={`btn ${activeAction === 'validate' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={handleValidate}
-            aria-label="Validate JSON syntax"
-          >
-            <CheckCircle2 size={15} />
-            <span>Validate</span>
-          </button>
+      {/* JSONPath Evaluator Drawer */}
+      {isJsonPathOpen && (
+        <JsonPathPanel
+          data={parsedData}
+          onExtractMatch={(extractedJson) => {
+            setInput(extractedJson);
+            handleFormat(extractedJson);
+          }}
+        />
+      )}
 
-          <button
-            className="btn btn-secondary"
-            onClick={handleRepair}
-            title="Auto-repair common mistakes like single quotes and trailing commas"
-            aria-label="Repair invalid JSON"
-          >
-            <Wrench size={15} />
-            <span>Auto Repair</span>
-          </button>
+      {/* Validation Status Banner */}
+      <ValidationResult
+        isValid={validationState.isValid}
+        issues={validationState.issues}
+        onOpenRepair={() => setIsRepairOpen(true)}
+        isOutdated={isOutdated}
+      />
 
-          <div className="options-control-group">
-            <label htmlFor="json-indent">Indent:</label>
-            <select
-              id="json-indent"
-              className="select-control"
-              value={indent}
-              onChange={(e) => {
-                const nextIndent = e.target.value as IndentOption;
-                setIndent(nextIndent);
-                if (output) {
-                  const res = formatJson(input, nextIndent);
-                  setOutput(res.output);
-                }
-              }}
+      {/* Main View Area */}
+      {viewMode === 'code' && (
+        <>
+          {/* Mobile Panel Switcher (Visible on small screens only) */}
+          <div className="json-mobile-tabs" role="tablist" aria-label="Mobile Panel Selector">
+            <button
+              type="button"
+              className={`json-mobile-tab ${mobileTab === 'both' ? 'active' : ''}`}
+              onClick={() => setMobileTab('both')}
+              data-testid="mobile-tab-both"
             >
-              <option value="2">2 Spaces</option>
-              <option value="4">4 Spaces</option>
-              <option value="tab">Tabs</option>
-            </select>
+              Both Editors
+            </button>
+            <button
+              type="button"
+              className={`json-mobile-tab ${mobileTab === 'input' ? 'active' : ''}`}
+              onClick={() => setMobileTab('input')}
+              data-testid="mobile-tab-input"
+            >
+              Original Input
+            </button>
+            <button
+              type="button"
+              className={`json-mobile-tab ${mobileTab === 'output' ? 'active' : ''}`}
+              onClick={() => setMobileTab('output')}
+              data-testid="mobile-tab-output"
+            >
+              Processed Output
+            </button>
           </div>
-        </div>
 
-        <div className="toolbar-group-right">
-          <FileDropzone
-            onFileLoaded={handleFileLoaded}
-            acceptExtensions={['.json', '.txt']}
-          />
-          <ResetButton onReset={handleReset} />
-        </div>
-      </div>
+          <div
+            ref={gridRef}
+            className="editor-workspace-grid json-resizable-grid"
+            data-testid="json-code-view"
+            style={
+              {
+                '--panels-left': `${panelsRatio}fr`,
+                '--panels-right': `${100 - panelsRatio}fr`,
+              } as React.CSSProperties
+            }
+          >
+            {/* Input Panel */}
+            <div
+              className={`editor-panel ${mobileTab === 'output' ? 'mobile-panel-hidden' : ''}`}
+              data-testid="json-input-panel"
+            >
+              <div className="panel-header">
+                <div className="panel-title-group">
+                  <span>Original Input (Raw JSON)</span>
+                  <span className="panel-stats">
+                    {inputLines.toLocaleString()} {inputLines === 1 ? 'Line' : 'Lines'} &bull; {formatByteSize(inputBytes)}
+                  </span>
+                </div>
+                <div className="panel-actions">
+                  <CopyButton text={input} label="Copy" />
+                </div>
+              </div>
+              <div className="panel-body">
+                <CodeEditor
+                  value={input}
+                  onChange={setInput}
+                  language="json"
+                  placeholder="Paste raw or unformatted JSON here..."
+                  useMonaco={useMonaco}
+                  fontSize={fontSize}
+                  wordWrap={wordWrap}
+                  footerLabel="Input"
+                />
+              </div>
+            </div>
 
-      {/* Validation Status Indicator */}
-      <ValidationResult isValid={validationState.isValid} issues={validationState.issues} />
+            {/* Draggable Resizer Gutter */}
+            <div
+              className="workspace-split-resizer"
+              onMouseDown={handleMouseDownResizer}
+              onDoubleClick={handleResetRatio}
+              title="Drag to resize panels • Double-click to reset (50/50)"
+              data-testid="workspace-panels-resizer"
+            >
+              <div className="workspace-split-resizer-line" />
+            </div>
 
-      {/* Split Code Panels */}
-      <div className="editor-workspace-grid">
-        {/* Input Panel */}
-        <div className="editor-panel">
-          <div className="panel-header">
-            <div className="panel-title-group">
-              <span>Input (Raw JSON)</span>
-              <span className="panel-stats">
-                {formatByteSize(inputBytes)} &bull; {input.split('\n').length} lines
-              </span>
-            </div>
-            <div className="panel-actions">
-              <CopyButton text={input} label="Copy" />
+            {/* Output Panel */}
+            <div
+              className={`editor-panel ${mobileTab === 'input' ? 'mobile-panel-hidden' : ''}`}
+              data-testid="json-output-panel"
+            >
+              <div className="panel-header">
+                <div className="panel-title-group">
+                  <span>Processed Output</span>
+                  <span className="panel-stats">
+                    {outputLines.toLocaleString()} {outputLines === 1 ? 'Line' : 'Lines'} &bull; {formatByteSize(outputBytes)}
+                  </span>
+                  {isOutdated && (
+                    <span className="badge badge-warning" data-testid="output-outdated-badge">
+                      Outdated
+                    </span>
+                  )}
+                </div>
+                <div className="panel-actions">
+                  <CopyButton text={output} label="Copy Output" />
+                  <DownloadButton
+                    content={output}
+                    fileName="formatted.json"
+                    mimeType="application/json"
+                  />
+                </div>
+              </div>
+              <div className="panel-body">
+                <CodeEditor
+                  value={output}
+                  readOnly
+                  language="json"
+                  placeholder="Formatted JSON output will appear here..."
+                  useMonaco={useMonaco}
+                  fontSize={fontSize}
+                  wordWrap={wordWrap}
+                  footerLabel="Output"
+                />
+              </div>
             </div>
           </div>
-          <div className="panel-body">
-            <CodeEditor
-              value={input}
-              onChange={setInput}
-              language="json"
-              placeholder="Paste raw or unformatted JSON here..."
-            />
-          </div>
-        </div>
+        </>
+      )}
 
-        {/* Output Panel */}
-        <div className="editor-panel">
-          <div className="panel-header">
-            <div className="panel-title-group">
-              <span>Output (Processed)</span>
-              <span className="panel-stats">
-                {formatByteSize(outputBytes)} &bull; {output.split('\n').length} lines
-              </span>
+      {/* Tree View */}
+      {viewMode === 'tree' && (
+        <div className="json-structured-view-container" data-testid="json-tree-container">
+          {parsedData !== null ? (
+            <JsonTreeView data={parsedData} />
+          ) : (
+            <div className="json-empty-structured-state">
+              <AlertTriangle size={28} className="text-warning" />
+              <h3>Valid JSON Required for Tree View</h3>
+              <p>The input currently contains syntax errors. Please click Beautify or Auto Repair to inspect in Tree View.</p>
+              <button className="btn btn-primary btn-sm" onClick={() => handleFormat()}>
+                <Sparkles size={14} />
+                <span>Format & Parse</span>
+              </button>
             </div>
-            <div className="panel-actions">
-              <CopyButton text={output} label="Copy Output" />
-              <DownloadButton
-                content={output}
-                fileName="formatted.json"
-                mimeType="application/json"
-              />
-            </div>
-          </div>
-          <div className="panel-body">
-            <CodeEditor
-              value={output}
-              readOnly
-              language="json"
-              placeholder="Formatted JSON output will appear here..."
-            />
-          </div>
+          )}
         </div>
-      </div>
+      )}
+
+      {/* Table View */}
+      {viewMode === 'table' && (
+        <div className="json-structured-view-container" data-testid="json-table-container">
+          {parsedData !== null ? (
+            <JsonTableView data={parsedData} />
+          ) : (
+            <div className="json-empty-structured-state">
+              <AlertTriangle size={28} className="text-warning" />
+              <h3>Valid JSON Required for Table View</h3>
+              <p>Table View displays tabular arrays or objects. Please format or repair your JSON first.</p>
+              <button className="btn btn-primary btn-sm" onClick={() => handleFormat()}>
+                <Sparkles size={14} />
+                <span>Format & Parse</span>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Modals */}
+      <JsonStatsModal
+        isOpen={isStatsOpen}
+        onClose={() => setIsStatsOpen(false)}
+        stats={stats}
+      />
+
+      <JsonTransformModal
+        isOpen={isTransformOpen}
+        onClose={() => setIsTransformOpen(false)}
+        jsonContent={output || input}
+        onApplyTransform={handleApplyTransform}
+      />
+
+      <JsonRepairModal
+        isOpen={isRepairOpen}
+        onClose={() => setIsRepairOpen(false)}
+        originalText={input}
+        onApplyRepair={handleApplyRepair}
+      />
+
+      <JsonShortcutsModal
+        isOpen={isShortcutsOpen}
+        onClose={() => setIsShortcutsOpen(false)}
+      />
+
+      <JsonSchemaModal
+        isOpen={isSchemaOpen}
+        onClose={() => setIsSchemaOpen(false)}
+        jsonContent={output || input}
+      />
+
+      <JsonRecentModal
+        isOpen={isRecentOpen}
+        onClose={() => setIsRecentOpen(false)}
+        currentContent={output || input}
+        onLoadContent={(c, name) => {
+          setInput(c);
+          handleFormat(c);
+          if (name) addRecentFile(name, c);
+        }}
+      />
     </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Sparkles, Search, Layers, ShieldCheck } from 'lucide-react';
+import { Search, Layers, ShieldCheck } from 'lucide-react';
 import { siteConfig } from '@/config/site';
 import { ThemeToggle } from './ThemeToggle';
 import { CommandMenu } from './CommandMenu';
@@ -15,9 +15,15 @@ export function Header() {
       <header className="site-header">
         <div className="container header-inner">
           <div className="logo-group">
-            <Link href="/" className="logo">
+            <Link href="/" className="logo" aria-label="FormatNook Hub Home">
               <span className="logo-icon">
-                <Sparkles size={18} />
+                <img
+                  src="/brand-icon.png"
+                  alt="FormatNook Brand Icon"
+                  width={34}
+                  height={34}
+                  className="logo-image"
+                />
               </span>
               <span>{siteConfig.name}</span>
               <span className="logo-badge">Hub</span>

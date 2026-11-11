@@ -1,6 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
-import { Sparkles, Shield, Lock, Heart } from 'lucide-react';
+import { Shield, Lock, Heart } from 'lucide-react';
 import { siteConfig } from '@/config/site';
 
 export function Footer() {
@@ -9,9 +9,15 @@ export function Footer() {
       <div className="container">
         <div className="footer-grid">
           <div className="footer-brand">
-            <Link href="/" className="logo">
-              <span className="logo-icon">
-                <Sparkles size={16} />
+            <Link href="/" className="logo" aria-label="FormatNook Home">
+              <span className="logo-icon footer-logo-icon">
+                <img
+                  src="/brand-icon.png"
+                  alt="FormatNook Brand Icon"
+                  width={28}
+                  height={28}
+                  className="logo-image footer-logo-image"
+                />
               </span>
               <span>{siteConfig.name}</span>
             </Link>

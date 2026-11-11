@@ -163,14 +163,20 @@ export function minifyJson(input: string): ToolExecutionResult {
 }
 
 /**
- * Explicit repair helper to fix common JSON mistakes (trailing commas, single quotes, unquoted keys)
+ * Explicit repair helper to fix common JSON mistakes (trailing commas, single quotes, unquoted keys, comments)
  */
 export function repairJson(input: string): string {
   if (!input || !input.trim()) return input;
 
   let repaired = input;
 
-  // Replace single quotes surrounding keys and string values with double quotes (basic heuristic)
+  // Strip single-line comments // ...
+  repaired = repaired.replace(/\/\/[^\n\r]*/g, '');
+
+  // Strip multi-line comments /* ... */
+  repaired = repaired.replace(/\/\*[\s\S]*?\*\//g, '');
+
+  // Replace single quotes surrounding keys and string values with double quotes
   repaired = repaired.replace(/'([^'\\]*(?:\\.[^'\\]*)*)'/g, '"$1"');
 
   // Remove trailing commas before closing braces/brackets
@@ -180,4 +186,32 @@ export function repairJson(input: string): string {
   repaired = repaired.replace(/([{,]\s*)([a-zA-Z0-9_$]+)\s*:/g, '$1"$2":');
 
   return repaired;
+}
+
+/**
+ * Returns a repair proposal with detected changes
+ */
+export function proposeJsonRepair(input: string): { repaired: string; changes: string[] } {
+  const changes: string[] = [];
+  if (!input || !input.trim()) return { repaired: input, changes: [] };
+
+  if (/\/\/[^\n\r]*|\/\*[\s\S]*?\*\//.test(input)) {
+    changes.push('Removed JavaScript comments (// and /* */)');
+  }
+  if (/'([^'\\]*(?:\\.[^'\\]*)*)'/.test(input)) {
+    changes.push('Replaced single quotes with valid JSON double quotes');
+  }
+  if (/,(\s*[}\]])/.test(input)) {
+    changes.push('Removed invalid trailing commas in objects or arrays');
+  }
+  if (/([{,]\s*)([a-zA-Z0-9_$]+)\s*:/.test(input)) {
+    changes.push('Added double quotes to unquoted property keys');
+  }
+
+  const repaired = repairJson(input);
+  if (changes.length === 0 && repaired !== input) {
+    changes.push('Normalized JSON formatting and character encodings');
+  }
+
+  return { repaired, changes };
 }

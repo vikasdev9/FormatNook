@@ -10,6 +10,12 @@ const MonacoEditor = dynamic(() => import('@monaco-editor/react'), {
   loading: () => <div className="editor-loading">Loading editor engine...</div>,
 });
 
+// Accurate logical line count helper for any LF/CRLF/empty text
+export function countLogicalLines(text: string): number {
+  if (!text || text.length === 0) return 0;
+  return text.split(/\r\n|\r|\n/).length;
+}
+
 interface CodeEditorProps {
   value: string;
   onChange?: (value: string) => void;
@@ -17,6 +23,9 @@ interface CodeEditorProps {
   readOnly?: boolean;
   placeholder?: string;
   useMonaco?: boolean;
+  fontSize?: number;
+  wordWrap?: boolean;
+  footerLabel?: string;
 }
 
 export function CodeEditor({
@@ -26,14 +35,34 @@ export function CodeEditor({
   readOnly = false,
   placeholder = 'Paste or type code here...',
   useMonaco = false,
+  fontSize = 13,
+  wordWrap = true,
+  footerLabel = 'Editor',
 }: CodeEditorProps) {
-  const [lineCount, setLineCount] = useState(1);
+  const [cursor, setCursor] = useState({ line: 1, col: 1 });
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const gutterRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const lines = (value || '').split('\n').length;
-    setLineCount(Math.max(lines, 1));
-  }, [value]);
+  const totalLines = countLogicalLines(value);
+  const totalChars = (value || '').length;
+  const totalBytes = new Blob([value || '']).size;
+  const visibleGutterLines = Math.max(totalLines, 1);
+
+  const updateCursor = (el: HTMLTextAreaElement) => {
+    const selStart = el.selectionStart || 0;
+    const before = el.value.slice(0, selStart);
+    const lines = before.split(/\r\n|\r|\n/);
+    setCursor({
+      line: Math.max(1, lines.length),
+      col: Math.max(1, (lines[lines.length - 1] || '').length + 1),
+    });
+  };
+
+  const handleScroll = (e: React.UIEvent<HTMLTextAreaElement>) => {
+    if (gutterRef.current) {
+      gutterRef.current.scrollTop = e.currentTarget.scrollTop;
+    }
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (readOnly) return;
@@ -53,54 +82,108 @@ export function CodeEditor({
 
       setTimeout(() => {
         textarea.selectionStart = textarea.selectionEnd = start + tabSpaces.length;
+        updateCursor(textarea);
       }, 0);
     }
   };
 
   if (useMonaco) {
     return (
-      <div className="custom-editor-container">
-        <MonacoEditor
-          height="100%"
-          language={language}
-          value={value}
-          onChange={(val) => onChange?.(val || '')}
-          options={{
-            readOnly,
-            minimap: { enabled: false },
-            fontSize: 13,
-            lineNumbers: 'on',
-            scrollBeyondLastLine: false,
-            wordWrap: 'on',
-            automaticLayout: true,
-          }}
-          theme="vs-dark"
-        />
+      <div className="custom-editor-with-footer">
+        <div className="custom-editor-container">
+          <MonacoEditor
+            height="100%"
+            language={language}
+            value={value}
+            onChange={(val) => onChange?.(val || '')}
+            onMount={(editor) => {
+              editor.onDidChangeCursorPosition((e: any) => {
+                setCursor({
+                  line: e.position.lineNumber,
+                  col: e.position.column,
+                });
+              });
+            }}
+            options={{
+              readOnly,
+              minimap: { enabled: false },
+              fontSize,
+              lineNumbers: 'on',
+              scrollBeyondLastLine: false,
+              wordWrap: wordWrap ? 'on' : 'off',
+              automaticLayout: true,
+            }}
+            theme="vs-dark"
+          />
+        </div>
+        <div className="editor-status-bar" data-testid={`${footerLabel.toLowerCase()}-status-bar`}>
+          <div className="status-bar-left">
+            <span data-testid="status-cursor-line">Ln: {cursor.line}</span>
+            <span className="status-sep">|</span>
+            <span data-testid="status-cursor-col">Col: {cursor.col}</span>
+            <span className="status-sep">|</span>
+            <span data-testid="status-total-lines">Total Lines: {totalLines}</span>
+          </div>
+          <div className="status-bar-right">
+            <span>{totalChars.toLocaleString()} chars</span>
+            <span className="status-sep">|</span>
+            <span>{formatByteSize(totalBytes)}</span>
+          </div>
+        </div>
       </div>
     );
   }
 
-  // Fast, accessible, robust editor with synchronized line numbers
+  // Fast, accessible, robust editor with synchronized line numbers and real-time status bar
   return (
-    <div className="custom-editor-container">
-      <div className="editor-line-gutter" aria-hidden="true">
-        {Array.from({ length: Math.min(lineCount, 5000) }, (_, i) => (
-          <div key={i + 1}>{i + 1}</div>
-        ))}
+    <div className="custom-editor-with-footer">
+      <div className="custom-editor-container">
+        <div ref={gutterRef} className="editor-line-gutter" aria-hidden="true">
+          {Array.from({ length: Math.min(visibleGutterLines, 10000) }, (_, i) => (
+            <div key={i + 1}>{i + 1}</div>
+          ))}
+        </div>
+        <textarea
+          ref={textareaRef}
+          className="editor-textarea"
+          value={value}
+          onChange={(e) => {
+            onChange?.(e.target.value);
+            updateCursor(e.target);
+          }}
+          onKeyDown={handleKeyDown}
+          onScroll={handleScroll}
+          onClick={(e) => updateCursor(e.currentTarget)}
+          onKeyUp={(e) => updateCursor(e.currentTarget)}
+          onSelect={(e) => updateCursor(e.currentTarget)}
+          onFocus={(e) => updateCursor(e.currentTarget)}
+          readOnly={readOnly}
+          placeholder={placeholder}
+          spellCheck="false"
+          autoCapitalize="none"
+          autoComplete="off"
+          aria-label="Code editor"
+          style={{
+            fontSize: `${fontSize}px`,
+            whiteSpace: wordWrap ? 'pre-wrap' : 'pre',
+            wordBreak: wordWrap ? 'break-word' : 'normal',
+          }}
+        />
       </div>
-      <textarea
-        ref={textareaRef}
-        className="editor-textarea"
-        value={value}
-        onChange={(e) => onChange?.(e.target.value)}
-        onKeyDown={handleKeyDown}
-        readOnly={readOnly}
-        placeholder={placeholder}
-        spellCheck="false"
-        autoCapitalize="none"
-        autoComplete="off"
-        aria-label="Code editor"
-      />
+      <div className="editor-status-bar" data-testid={`${footerLabel.toLowerCase()}-status-bar`}>
+        <div className="status-bar-left">
+          <span data-testid="status-cursor-line">Ln: {cursor.line}</span>
+          <span className="status-sep">|</span>
+          <span data-testid="status-cursor-col">Col: {cursor.col}</span>
+          <span className="status-sep">|</span>
+          <span data-testid="status-total-lines">Total Lines: {totalLines}</span>
+        </div>
+        <div className="status-bar-right">
+          <span>{totalChars.toLocaleString()} chars</span>
+          <span className="status-sep">|</span>
+          <span>{formatByteSize(totalBytes)}</span>
+        </div>
+      </div>
     </div>
   );
 }
