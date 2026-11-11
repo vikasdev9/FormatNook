@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { X, ArrowRightLeft, Copy, Check, Download, AlertCircle, Sparkles, SlidersHorizontal } from 'lucide-react';
 import {
   jsonToCsv,
+  jsonToTsv,
   jsonToXml,
   jsonToYaml,
   flattenJson,
@@ -12,6 +13,9 @@ import {
   sortJsonArray,
   filterJson,
   deduplicateJsonArrays,
+  extractJsonFields,
+  mergeJsonObjects,
+  splitJsonArray,
   escapeJsonString,
   unescapeJsonString,
 } from '../services/json-transform-service';
@@ -61,6 +65,11 @@ export function JsonTransformModal({
   const [filterOp, setFilterOp] = useState<'equals' | 'contains' | 'starts_with' | 'type'>('contains');
   const [filterVal, setFilterVal] = useState<string>('');
   const [dedupProp, setDedupProp] = useState<string>('');
+  const [extractFieldsStr, setExtractFieldsStr] = useState<string>('');
+  const [extractKeepStructure, setExtractKeepStructure] = useState<boolean>(false);
+  const [mergeInputJson, setMergeInputJson] = useState<string>('{}');
+  const [mergeStrategy, setMergeStrategy] = useState<'shallow' | 'deep'>('deep');
+  const [splitChunkSize, setSplitChunkSize] = useState<number>(10);
 
   const { copy, copied } = useClipboard();
 
@@ -98,6 +107,22 @@ export function JsonTransformModal({
     switch (selectedType) {
       case 'csv':
         return jsonToCsv(parsedData, { delimiter: csvDelimiter, nestedStrategy: csvNestedStrategy });
+      case 'tsv':
+        return jsonToTsv(parsedData, { nestedStrategy: csvNestedStrategy });
+      case 'extract': {
+        const fields = extractFieldsStr.split(',').map((s) => s.trim()).filter(Boolean);
+        return extractJsonFields(parsedData, { fields, keepStructure: extractKeepStructure });
+      }
+      case 'merge': {
+        try {
+          const second = JSON.parse(mergeInputJson || '{}');
+          return mergeJsonObjects(parsedData, second, { strategy: mergeStrategy });
+        } catch (err: any) {
+          return { output: 'Error: Secondary merge input is not valid JSON.', format: 'text' };
+        }
+      }
+      case 'split':
+        return splitJsonArray(parsedData, { chunkSize: splitChunkSize });
       case 'xml':
         return jsonToXml(parsedData, { rootTag: xmlRootTag, itemTag: xmlItemTag });
       case 'yaml':
@@ -138,6 +163,11 @@ export function JsonTransformModal({
     filterOp,
     filterVal,
     dedupProp,
+    extractFieldsStr,
+    extractKeepStructure,
+    mergeInputJson,
+    mergeStrategy,
+    splitChunkSize,
   ]);
 
   if (!isOpen) return null;
@@ -207,6 +237,30 @@ export function JsonTransformModal({
               JSON to CSV
             </button>
             <button
+              className={`pill-btn ${selectedType === 'tsv' ? 'active' : ''}`}
+              onClick={() => setSelectedType('tsv')}
+            >
+              JSON to TSV
+            </button>
+            <button
+              className={`pill-btn ${selectedType === 'extract' ? 'active' : ''}`}
+              onClick={() => setSelectedType('extract')}
+            >
+              Extract Fields
+            </button>
+            <button
+              className={`pill-btn ${selectedType === 'merge' ? 'active' : ''}`}
+              onClick={() => setSelectedType('merge')}
+            >
+              Merge Objects
+            </button>
+            <button
+              className={`pill-btn ${selectedType === 'split' ? 'active' : ''}`}
+              onClick={() => setSelectedType('split')}
+            >
+              Split Array
+            </button>
+            <button
               className={`pill-btn ${selectedType === 'flatten' ? 'active' : ''}`}
               onClick={() => setSelectedType('flatten')}
             >
@@ -258,30 +312,80 @@ export function JsonTransformModal({
 
           {/* Contextual Options Bar */}
           <div className="transform-options-bar">
-            {selectedType === 'csv' && (
+            {selectedType === 'tsv' && (
               <div className="options-inline-row">
-                <label>Delimiter:</label>
-                <select
-                  className="select-control select-xs"
-                  value={csvDelimiter}
-                  onChange={(e) => setCsvDelimiter(e.target.value as any)}
-                  data-testid="csv-delimiter-select"
-                >
-                  <option value=",">Comma (,)</option>
-                  <option value=";">Semicolon (;)</option>
-                  <option value="&#9;">Tab (\t)</option>
-                </select>
+                <label>Tab-Separated Output</label>
                 <label>Nested Objects:</label>
                 <select
                   className="select-control select-xs"
                   value={csvNestedStrategy}
                   onChange={(e) => setCsvNestedStrategy(e.target.value as any)}
-                  data-testid="csv-nested-strategy-select"
                 >
                   <option value="json-string">JSON String</option>
                   <option value="flatten">Flatten Keys</option>
                   <option value="discard">Discard Nested</option>
                 </select>
+              </div>
+            )}
+
+            {selectedType === 'extract' && (
+              <div className="options-inline-row" style={{ flex: 1 }}>
+                <label>Fields (comma-separated):</label>
+                <input
+                  type="text"
+                  className="input-xs"
+                  style={{ flex: 1, minWidth: '180px' }}
+                  value={extractFieldsStr}
+                  onChange={(e) => setExtractFieldsStr(e.target.value)}
+                  placeholder="e.g. id, name, user.email"
+                />
+                <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={extractKeepStructure}
+                    onChange={(e) => setExtractKeepStructure(e.target.checked)}
+                  />
+                  <span>Keep hierarchy</span>
+                </label>
+              </div>
+            )}
+
+            {selectedType === 'merge' && (
+              <div className="options-inline-row" style={{ flex: 1 }}>
+                <label>Merge Strategy:</label>
+                <select
+                  className="select-control select-xs"
+                  value={mergeStrategy}
+                  onChange={(e) => setMergeStrategy(e.target.value as any)}
+                >
+                  <option value="deep">Deep Merge (recursive)</option>
+                  <option value="shallow">Shallow Merge (top-level)</option>
+                </select>
+                <label>Merge with JSON:</label>
+                <input
+                  type="text"
+                  className="input-xs"
+                  style={{ flex: 1, minWidth: '200px' }}
+                  value={mergeInputJson}
+                  onChange={(e) => setMergeInputJson(e.target.value)}
+                  placeholder='{"extraKey": "value"}'
+                />
+              </div>
+            )}
+
+            {selectedType === 'split' && (
+              <div className="options-inline-row">
+                <label>Chunk Size:</label>
+                <input
+                  type="number"
+                  className="input-xs"
+                  style={{ width: '80px' }}
+                  min="1"
+                  max="100000"
+                  value={splitChunkSize}
+                  onChange={(e) => setSplitChunkSize(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                />
+                <span style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>elements per subarray</span>
               </div>
             )}
 

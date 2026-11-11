@@ -1,4 +1,6 @@
 export * from './services/json-service';
+export * from './services/json5-service';
+export * from './services/json-codegen-service';
 export * from './services/json-stats-service';
 export * from './services/json-transform-service';
 export * from './services/json-path-service';
@@ -18,3 +20,5 @@ export * from './components/JsonRepairModal';
 export * from './components/JsonShortcutsModal';
 export * from './components/JsonSchemaModal';
 export * from './components/JsonRecentModal';
+export * from './components/JsonCodeGenModal';
+export * from './components/JsonDiffModal';

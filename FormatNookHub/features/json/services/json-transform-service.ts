@@ -8,6 +8,9 @@ import {
   SortArrayOptions,
   FilterOptions,
   DeduplicateOptions,
+  ExtractFieldsOptions,
+  MergeObjectsOptions,
+  SplitArrayOptions,
 } from '../types/json.types';
 
 /**
@@ -525,4 +528,132 @@ export function unescapeJsonString(input: string): JsonTransformResult {
       .replace(/\\\\/g, '\\');
     return { output: unescaped, format: 'text' };
   }
+}
+
+/**
+ * Converts JSON to Tab-Separated Values (TSV).
+ */
+export function jsonToTsv(data: any, options: CsvOptions = {}): JsonTransformResult {
+  const csvRes = jsonToCsv(data, { ...options, delimiter: '\t' });
+  return {
+    output: csvRes.output,
+    format: 'text',
+    isLossy: csvRes.isLossy,
+    notes: 'Converted to Tab-Separated Values (TSV).' + (csvRes.notes ? ` ${csvRes.notes}` : ''),
+  };
+}
+
+/**
+ * Extracts selected fields from a JSON object or array of objects.
+ */
+export function extractJsonFields(data: any, options: ExtractFieldsOptions): JsonTransformResult {
+  const fields = (options.fields || []).map((f) => f.trim()).filter(Boolean);
+  if (fields.length === 0) {
+    return { output: JSON.stringify(data, null, 2), format: 'json', notes: 'No fields specified to extract.' };
+  }
+
+  function getField(obj: any, path: string): any {
+    const parts = path.split('.');
+    let cur = obj;
+    for (const p of parts) {
+      if (cur === null || cur === undefined || typeof cur !== 'object') return undefined;
+      cur = cur[p];
+    }
+    return cur;
+  }
+
+  function setField(obj: any, path: string, val: any) {
+    const parts = path.split('.');
+    let cur = obj;
+    for (let i = 0; i < parts.length - 1; i++) {
+      const p = parts[i];
+      if (!cur[p] || typeof cur[p] !== 'object') {
+        cur[p] = {};
+      }
+      cur = cur[p];
+    }
+    cur[parts[parts.length - 1]] = val;
+  }
+
+  function pickFields(item: any): any {
+    if (typeof item !== 'object' || item === null) return item;
+    const res: Record<string, any> = {};
+    for (const field of fields) {
+      const val = getField(item, field);
+      if (val !== undefined) {
+        if (options.keepStructure && field.includes('.')) {
+          setField(res, field, val);
+        } else {
+          // Flatten key name if nested without keepStructure
+          const leafKey = field.includes('.') ? field.split('.').pop()! : field;
+          res[leafKey] = val;
+        }
+      }
+    }
+    return res;
+  }
+
+  const result = Array.isArray(data) ? data.map(pickFields) : pickFields(data);
+  return { output: JSON.stringify(result, null, 2), format: 'json' };
+}
+
+/**
+ * Merges two JSON objects (shallow or deep).
+ */
+export function mergeJsonObjects(sourceA: any, sourceB: any, options: MergeObjectsOptions = {}): JsonTransformResult {
+  const strategy = options.strategy || 'deep';
+
+  function deepMerge(target: any, source: any): any {
+    if (source === null || typeof source !== 'object' || Array.isArray(source)) {
+      return source;
+    }
+    const output = { ...(target && typeof target === 'object' && !Array.isArray(target) ? target : {}) };
+    for (const key of Object.keys(source)) {
+      if (
+        key in output &&
+        typeof output[key] === 'object' &&
+        output[key] !== null &&
+        !Array.isArray(output[key]) &&
+        typeof source[key] === 'object' &&
+        source[key] !== null &&
+        !Array.isArray(source[key])
+      ) {
+        output[key] = deepMerge(output[key], source[key]);
+      } else {
+        output[key] = source[key];
+      }
+    }
+    return output;
+  }
+
+  const merged = strategy === 'shallow'
+    ? { ...(typeof sourceA === 'object' ? sourceA : {}), ...(typeof sourceB === 'object' ? sourceB : {}) }
+    : deepMerge(sourceA, sourceB);
+
+  return { output: JSON.stringify(merged, null, 2), format: 'json' };
+}
+
+/**
+ * Splits an array into smaller chunks of specified size.
+ */
+export function splitJsonArray(data: any, options: SplitArrayOptions = {}): JsonTransformResult {
+  if (!Array.isArray(data)) {
+    return {
+      output: JSON.stringify(data, null, 2),
+      format: 'json',
+      notes: 'Input is not an array; splitting requires an array.',
+    };
+  }
+
+  const chunkSize = Math.max(1, options.chunkSize || 10);
+  const chunks: any[][] = [];
+  for (let i = 0; i < data.length; i += chunkSize) {
+    chunks.push(data.slice(i, i + chunkSize));
+  }
+
+  return {
+    output: JSON.stringify(chunks, null, 2),
+    format: 'json',
+    notes: `Split array of ${data.length} elements into ${chunks.length} chunks of size ${chunkSize}.`,
+  };
 }

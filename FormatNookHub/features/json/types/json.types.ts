@@ -1,3 +1,5 @@
+import { IndentOption } from '@/types/tool';
+
 export type JsonViewMode = 'code' | 'tree' | 'table';
 
 export type JsonDataType =
@@ -46,6 +48,7 @@ export interface JsonTreeNode {
 
 export type JsonTransformType =
   | 'csv'
+  | 'tsv'
   | 'xml'
   | 'yaml'
   | 'text'
@@ -55,6 +58,9 @@ export type JsonTransformType =
   | 'sort-array'
   | 'filter'
   | 'deduplicate'
+  | 'extract'
+  | 'merge'
+  | 'split'
   | 'escape'
   | 'unescape';
 
@@ -114,6 +120,47 @@ export interface DeduplicateOptions {
   propertyKey?: string;
 }
 
+export interface ExtractFieldsOptions {
+  fields: string[];
+  keepStructure?: boolean;
+}
+
+export interface MergeObjectsOptions {
+  strategy?: 'shallow' | 'deep';
+}
+
+export interface SplitArrayOptions {
+  chunkSize?: number;
+}
+
+export type CodeGenLanguage =
+  | 'typescript'
+  | 'javascript'
+  | 'java'
+  | 'python'
+  | 'kotlin'
+  | 'csharp'
+  | 'go'
+  | 'rust'
+  | 'swift'
+  | 'ruby'
+  | 'dart'
+  | 'php';
+
+export interface CodeGenOptions {
+  language: CodeGenLanguage;
+  rootClassName?: string;
+  optionalFields?: boolean;
+  useInterfaces?: boolean;
+}
+
+export interface Json5ValidationResult {
+  isValid: boolean;
+  error?: string;
+  line?: number;
+  column?: number;
+}
+
 export interface JsonSnippet {
   id: string;
   title: string;
@@ -137,7 +184,7 @@ export interface JsonEditorPreferences {
   theme: 'system' | 'light' | 'dark';
   viewMode: JsonViewMode;
   fontSize: number;
-  indent: '2' | '4' | 'tab';
+  indent: IndentOption;
   wordWrap: boolean;
   panelsRatio: number;
   autoFormat?: boolean;

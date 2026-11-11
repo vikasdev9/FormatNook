@@ -18,6 +18,10 @@ import {
   Maximize,
   Minimize,
   Columns2,
+  GitCompare,
+  FileCode2,
+  ArrowDownAZ,
+  Quote,
 } from 'lucide-react';
 import { IndentOption } from '@/types/tool';
 import { JsonViewMode } from '../types/json.types';
@@ -40,6 +44,14 @@ interface JsonToolbarProps {
   onOpenStats: () => void;
   onOpenShortcuts: () => void;
   onOpenRecent: () => void;
+  isJson5Mode?: boolean;
+  onToggleJson5Mode?: () => void;
+  onOpenCodeGen?: () => void;
+  onOpenDiff?: () => void;
+  onSortKeys?: () => void;
+  onOneLine?: () => void;
+  onStringify?: () => void;
+  onUnstringify?: () => void;
   isFullScreen: boolean;
   onToggleFullScreen: () => void;
   indent: IndentOption;
@@ -76,6 +88,14 @@ export function JsonToolbar({
   onOpenStats,
   onOpenShortcuts,
   onOpenRecent,
+  isJson5Mode = false,
+  onToggleJson5Mode,
+  onOpenCodeGen,
+  onOpenDiff,
+  onSortKeys,
+  onOneLine,
+  onStringify,
+  onUnstringify,
   isFullScreen,
   onToggleFullScreen,
   indent,
@@ -229,6 +249,41 @@ export function JsonToolbar({
               <BarChart3 size={15} />
               <span>Stats</span>
             </button>
+
+            {onOpenDiff && (
+              <button
+                className="btn btn-secondary"
+                onClick={onOpenDiff}
+                title="Compare and diff JSON documents"
+                data-testid="json-compare-btn"
+              >
+                <GitCompare size={15} />
+                <span>Compare</span>
+              </button>
+            )}
+
+            {onOpenCodeGen && (
+              <button
+                className="btn btn-secondary"
+                onClick={onOpenCodeGen}
+                title="Generate typed models and classes for 12 programming languages"
+                data-testid="json-codegen-btn"
+              >
+                <FileCode2 size={15} />
+                <span>Code Models</span>
+              </button>
+            )}
+
+            {onToggleJson5Mode && (
+              <button
+                className={`btn ${isJson5Mode ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={onToggleJson5Mode}
+                title="Toggle JSON5 syntax support (comments, unquoted keys, trailing commas, hex)"
+                data-testid="json5-mode-btn"
+              >
+                <span>JSON5 {isJson5Mode ? 'ON' : 'OFF'}</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -252,7 +307,10 @@ export function JsonToolbar({
               data-testid="json-indent-select"
             >
               <option value="2">2 Spaces</option>
+              <option value="3">3 Spaces</option>
               <option value="4">4 Spaces</option>
+              <option value="6">6 Spaces</option>
+              <option value="8">8 Spaces</option>
               <option value="tab">Tabs</option>
             </select>
           </div>
@@ -328,6 +386,52 @@ export function JsonToolbar({
           >
             Editor: {useMonaco ? 'Monaco' : 'Standard'}
           </button>
+
+          {/* Core Tools Quick Buttons */}
+          {onSortKeys && (
+            <button
+              className="btn-subtle-toggle"
+              onClick={onSortKeys}
+              title="Sort all keys alphabetically (A-Z)"
+              data-testid="json-sort-keys-quick-btn"
+            >
+              <ArrowDownAZ size={13} style={{ display: 'inline', marginRight: '3px' }} />
+              Sort Keys
+            </button>
+          )}
+
+          {onOneLine && (
+            <button
+              className="btn-subtle-toggle"
+              onClick={onOneLine}
+              title="Convert JSON to a single compact line"
+              data-testid="json-one-line-quick-btn"
+            >
+              One-Line
+            </button>
+          )}
+
+          {onStringify && (
+            <button
+              className="btn-subtle-toggle"
+              onClick={onStringify}
+              title="Escape JSON as a string literal for code embedding"
+              data-testid="json-stringify-quick-btn"
+            >
+              Stringify
+            </button>
+          )}
+
+          {onUnstringify && (
+            <button
+              className="btn-subtle-toggle"
+              onClick={onUnstringify}
+              title="Parse an escaped string literal back to JSON"
+              data-testid="json-unstringify-quick-btn"
+            >
+              Unstringify
+            </button>
+          )}
 
           {/* Status Indicator Badge */}
           {statusMessage && (

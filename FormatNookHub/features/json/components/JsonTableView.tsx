@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Search, ArrowUpDown, Download, Copy, Check, Table as TableIcon } from 'lucide-react';
+import { Search, ArrowUpDown, Download, Copy, Check, ChevronLeft, ChevronRight, Table as TableIcon } from 'lucide-react';
 import { useClipboard } from '@/hooks/useClipboard';
 import { downloadFile } from '@/lib/download';
 import { jsonToCsv } from '../services/json-transform-service';
@@ -15,6 +15,8 @@ export function JsonTableView({ data }: JsonTableViewProps) {
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortAsc, setSortAsc] = useState<boolean>(true);
   const [copiedCell, setCopiedCell] = useState<string | null>(null);
+  const [page, setPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(50);
 
   const { copy } = useClipboard();
 
@@ -93,6 +95,13 @@ export function JsonTableView({ data }: JsonTableViewProps) {
     return result;
   }, [rows, search, sortCol, sortAsc]);
 
+  const totalPages = Math.max(1, Math.ceil(processedRows.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const paginatedRows = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return processedRows.slice(start, start + pageSize);
+  }, [processedRows, currentPage, pageSize]);
+
   const handleSort = (col: string) => {
     if (sortCol === col) {
       setSortAsc((prev) => !prev);
@@ -100,6 +109,7 @@ export function JsonTableView({ data }: JsonTableViewProps) {
       setSortCol(col);
       setSortAsc(true);
     }
+    setPage(1);
   };
 
   const handleCopyCell = (val: any, cellId: string) => {
@@ -125,15 +135,64 @@ export function JsonTableView({ data }: JsonTableViewProps) {
             className="table-search-input"
             placeholder="Filter table rows..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
             data-testid="table-search-input"
           />
         </div>
 
-        <div className="table-stats-info">
+        <div className="table-stats-info" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <span>
-            Showing <strong>{processedRows.length}</strong> of <strong>{rows.length}</strong> rows
+            <strong>{processedRows.length}</strong> {processedRows.length === 1 ? 'row' : 'rows'}
           </span>
+
+          {processedRows.length > 25 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '12px' }}>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setPage(1);
+                }}
+                className="select-control select-xs"
+                style={{ padding: '2px 4px', height: '26px' }}
+              >
+                <option value={25}>25 / page</option>
+                <option value={50}>50 / page</option>
+                <option value={100}>100 / page</option>
+                <option value={250}>250 / page</option>
+              </select>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-xs"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage <= 1}
+                  title="Previous page"
+                  style={{ padding: '2px 6px', height: '26px' }}
+                >
+                  <ChevronLeft size={13} />
+                </button>
+                <span style={{ fontSize: '11px', padding: '0 4px' }}>
+                  {currentPage} / {totalPages}
+                </span>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-xs"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage >= totalPages}
+                  title="Next page"
+                  style={{ padding: '2px 6px', height: '26px' }}
+                >
+                  <ChevronRight size={13} />
+                </button>
+              </div>
+            </div>
+          )}
+
           <button
             type="button"
             className="btn btn-secondary btn-sm"
@@ -172,9 +231,11 @@ export function JsonTableView({ data }: JsonTableViewProps) {
               </tr>
             </thead>
             <tbody>
-              {processedRows.map((row, rIdx) => (
-                <tr key={rIdx}>
-                  <td className="row-number-cell">{rIdx + 1}</td>
+              {paginatedRows.map((row, rIdx) => {
+                const rowNum = (currentPage - 1) * pageSize + rIdx + 1;
+                return (
+                  <tr key={rowNum}>
+                    <td className="row-number-cell">{rowNum}</td>
                   {headers.map((h) => {
                     const val = row[h];
                     const isObj = typeof val === 'object' && val !== null;
@@ -198,7 +259,8 @@ export function JsonTableView({ data }: JsonTableViewProps) {
                     );
                   })}
                 </tr>
-              ))}
+              );
+            })}
             </tbody>
           </table>
         )}

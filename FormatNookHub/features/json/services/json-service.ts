@@ -2,8 +2,8 @@ import { IndentOption, ValidationIssue, ToolExecutionResult } from '@/types/tool
 
 export function getIndentString(indent: IndentOption): string | number {
   if (indent === 'tab') return '\t';
-  if (indent === '4') return 4;
-  return 2;
+  const num = parseInt(indent, 10);
+  return isNaN(num) ? 2 : num;
 }
 
 /**
@@ -74,9 +74,27 @@ export function validateJson(input: string): { isValid: boolean; issues: Validat
 }
 
 /**
+ * Recursively sorts all keys in an object or nested objects alphabetically.
+ */
+export function sortObjectKeysRecursive(node: any): any {
+  if (node === null || typeof node !== 'object') return node;
+  if (Array.isArray(node)) return node.map(sortObjectKeysRecursive);
+  const keys = Object.keys(node).sort((a, b) => a.localeCompare(b));
+  const sorted: Record<string, any> = {};
+  for (const k of keys) {
+    sorted[k] = sortObjectKeysRecursive(node[k]);
+  }
+  return sorted;
+}
+
+/**
  * Formats JSON strictly. Invalid JSON will return validation issues without altering data.
  */
-export function formatJson(input: string, indent: IndentOption = '2'): ToolExecutionResult {
+export function formatJson(
+  input: string,
+  indent: IndentOption = '2',
+  options: { sortKeys?: boolean } = {}
+): ToolExecutionResult {
   const start = performance.now();
   const inputSize = new Blob([input]).size;
 
@@ -93,13 +111,17 @@ export function formatJson(input: string, indent: IndentOption = '2'): ToolExecu
   }
 
   try {
-    const parsed = JSON.parse(input);
+    let parsed = JSON.parse(input);
+    if (options.sortKeys) {
+      parsed = sortObjectKeysRecursive(parsed);
+    }
     const indentVal = getIndentString(indent);
     const formatted = JSON.stringify(parsed, null, indentVal);
-    const outputSize = new Blob([formatted]).size;
+    const cleanedOutput = formatted.split('\n').map((l) => l.trimEnd()).join('\n');
+    const outputSize = new Blob([cleanedOutput]).size;
 
     return {
-      output: formatted,
+      output: cleanedOutput,
       isValid: true,
       issues: [],
       inputSize,
@@ -268,4 +290,48 @@ export function proposeJsonRepair(input: string): { repaired: string; changes: s
   }
 
   return { repaired, changes };
+}
+
+/**
+ * Escapes/stringifies JSON into a string literal for embedding in code.
+ */
+export function stringifyJson(input: string): string {
+  try {
+    const parsed = JSON.parse(input);
+    return JSON.stringify(JSON.stringify(parsed));
+  } catch {
+    return JSON.stringify(input);
+  }
+}
+
+/**
+ * Unescapes/parses an escaped JSON string literal.
+ */
+export function unstringifyJson(input: string): string {
+  try {
+    const parsed = JSON.parse(input);
+    if (typeof parsed === 'string') {
+      try {
+        const inner = JSON.parse(parsed);
+        return JSON.stringify(inner, null, 2);
+      } catch {
+        return parsed;
+      }
+    }
+    return JSON.stringify(parsed, null, 2);
+  } catch {
+    return input;
+  }
+}
+
+/**
+ * Compresses JSON into a single line without any newlines or extra whitespace.
+ */
+export function oneLineJson(input: string): string {
+  try {
+    const parsed = JSON.parse(input);
+    return JSON.stringify(parsed);
+  } catch {
+    return input.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+  }
 }

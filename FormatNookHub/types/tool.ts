@@ -68,7 +68,7 @@ export interface CategoryDefinition {
   shortDescription: string;
 }
 
-export type IndentOption = '2' | '4' | 'tab';
+export type IndentOption = '2' | '3' | '4' | '6' | '8' | 'tab';
 
 export interface ValidationIssue {
   line?: number;

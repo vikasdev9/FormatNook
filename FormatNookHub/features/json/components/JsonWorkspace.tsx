@@ -14,7 +14,21 @@ import {
   Download,
 } from 'lucide-react';
 import { IndentOption, ValidationIssue } from '@/types/tool';
-import { formatJson, minifyJson, validateJson, repairJson } from '../services/json-service';
+import {
+  formatJson,
+  minifyJson,
+  validateJson,
+  repairJson,
+  getIndentString,
+  stringifyJson,
+  unstringifyJson,
+  oneLineJson,
+} from '../services/json-service';
+import {
+  validateJson5,
+  formatJson5,
+  json5ToStandardJson,
+} from '../services/json5-service';
 import { computeJsonStats } from '../services/json-stats-service';
 import { jsonWorkerClient } from '../services/json-worker-client';
 import {
@@ -39,6 +53,8 @@ import { JsonRepairModal } from './JsonRepairModal';
 import { JsonShortcutsModal } from './JsonShortcutsModal';
 import { JsonSchemaModal } from './JsonSchemaModal';
 import { JsonRecentModal } from './JsonRecentModal';
+import { JsonCodeGenModal } from './JsonCodeGenModal';
+import { JsonDiffModal } from './JsonDiffModal';
 
 interface JsonWorkspaceProps {
   initialMode?: 'format' | 'validate' | 'minify';
@@ -94,6 +110,9 @@ export function JsonWorkspace({ initialMode = 'format' }: JsonWorkspaceProps) {
   const [isShortcutsOpen, setIsShortcutsOpen] = useState<boolean>(false);
   const [isSchemaOpen, setIsSchemaOpen] = useState<boolean>(false);
   const [isRecentOpen, setIsRecentOpen] = useState<boolean>(false);
+  const [isCodeGenOpen, setIsCodeGenOpen] = useState<boolean>(false);
+  const [isDiffOpen, setIsDiffOpen] = useState<boolean>(false);
+  const [isJson5Mode, setIsJson5Mode] = useState<boolean>(false);
 
   // Worker & Progress State
   const [isWorkerRunning, setIsWorkerRunning] = useState<boolean>(false);
@@ -154,6 +173,35 @@ export function JsonWorkspace({ initialMode = 'format' }: JsonWorkspaceProps) {
       const size = new Blob([text]).size;
       setStatusType('formatting');
       setStatusMessage('Formatting...');
+
+      if (isJson5Mode) {
+        const val5 = validateJson5(text);
+        if (!val5.isValid) {
+          setValidationState({
+            isValid: false,
+            issues: [
+              {
+                line: val5.line,
+                column: val5.column,
+                message: val5.error || 'Invalid JSON5 syntax',
+                severity: 'error',
+              },
+            ],
+          });
+          setIsOutdated(true);
+          setStatusMessage('Invalid JSON5');
+          setStatusType('error');
+          return;
+        }
+
+        const formatted5 = formatJson5(text, curIndent);
+        setOutput(formatted5);
+        setValidationState({ isValid: true, issues: [] });
+        setIsOutdated(false);
+        setStatusMessage(isManual ? 'JSON5 Formatted' : 'Valid JSON5');
+        setStatusType('success');
+        return;
+      }
 
       if (size > LARGE_FILE_THRESHOLD_BYTES) {
         setIsWorkerRunning(true);
@@ -331,6 +379,33 @@ export function JsonWorkspace({ initialMode = 'format' }: JsonWorkspaceProps) {
   // Handle validate
   const handleValidate = useCallback(() => {
     setActiveAction('validate');
+    if (isJson5Mode) {
+      const val5 = validateJson5(input);
+      if (!val5.isValid) {
+        setValidationState({
+          isValid: false,
+          issues: [
+            {
+              line: val5.line,
+              column: val5.column,
+              message: val5.error || 'Invalid JSON5 syntax',
+              severity: 'error',
+            },
+          ],
+        });
+        setIsOutdated(true);
+        setStatusMessage('Invalid JSON5');
+        setStatusType('error');
+      } else {
+        setOutput(input);
+        setValidationState({ isValid: true, issues: [] });
+        setIsOutdated(false);
+        setStatusMessage('Valid JSON5');
+        setStatusType('success');
+      }
+      return;
+    }
+
     const result = validateJson(input);
     setValidationState({ isValid: result.isValid, issues: result.issues });
     if (result.isValid) {
@@ -343,7 +418,109 @@ export function JsonWorkspace({ initialMode = 'format' }: JsonWorkspaceProps) {
       setStatusMessage('Invalid JSON - syntax error detected');
       setStatusType('error');
     }
+  }, [input, isJson5Mode]);
+
+  // Convert JSON5 to standard JSON
+  const handleConvertJson5ToStandard = useCallback(() => {
+    try {
+      const std = json5ToStandardJson(input, indent);
+      setInput(std);
+      setOutput(std);
+      setIsJson5Mode(false);
+      setValidationState({ isValid: true, issues: [] });
+      setStatusMessage('Converted JSON5 to Standard JSON');
+      setStatusType('success');
+    } catch (err: any) {
+      setStatusMessage(`Conversion failed: ${err?.message || 'Invalid JSON5'}`);
+      setStatusType('error');
+    }
+  }, [input, indent]);
+
+  // Sort Keys (A-Z)
+  const handleSortKeys = useCallback(() => {
+    setActiveAction('sort-keys');
+    const res = formatJson(input, indent, { sortKeys: true });
+    if (res.isValid) {
+      setOutput(res.output);
+      setValidationState({ isValid: true, issues: [] });
+      setIsOutdated(false);
+      setStatusMessage('Keys sorted alphabetically (A-Z)');
+      setStatusType('success');
+    } else {
+      setValidationState({ isValid: false, issues: res.issues });
+      setStatusMessage('Failed to sort keys: syntax error');
+      setStatusType('error');
+    }
+  }, [input, indent]);
+
+  // One-Line JSON
+  const handleOneLine = useCallback(() => {
+    setActiveAction('one-line');
+    const compact = oneLineJson(input);
+    setOutput(compact);
+    setIsOutdated(false);
+    setStatusMessage('Converted to one-line JSON');
+    setStatusType('success');
   }, [input]);
+
+  // Stringify JSON
+  const handleStringify = useCallback(() => {
+    setActiveAction('stringify');
+    const str = stringifyJson(output || input);
+    setOutput(str);
+    setIsOutdated(false);
+    setStatusMessage('JSON escaped as string literal');
+    setStatusType('success');
+  }, [input, output]);
+
+  // Unstringify JSON
+  const handleUnstringify = useCallback(() => {
+    setActiveAction('unstringify');
+    const unstr = unstringifyJson(input);
+    setInput(unstr);
+    setOutput(unstr);
+    setIsOutdated(false);
+    setStatusMessage('Unescaped string literal to JSON');
+    setStatusType('success');
+  }, [input]);
+
+  // In-place Tree Node Value Editing
+  const handleTreeEditValue = useCallback(
+    (path: string, newValue: any) => {
+      if (!parsedData) return;
+      const updated = JSON.parse(JSON.stringify(parsedData));
+      const cleanPath = path.startsWith('$.') ? path.slice(2) : path.startsWith('$') ? path.slice(1) : path;
+      if (!cleanPath) {
+        const newStr = JSON.stringify(newValue, null, getIndentString(indent));
+        setInput(newStr);
+        handleFormat(newStr);
+        return;
+      }
+
+      const tokens: (string | number)[] = [];
+      const regex = /(?:^|\.)([a-zA-Z0-9_$]+)|\[(\d+)\]/g;
+      let match;
+      while ((match = regex.exec(cleanPath)) !== null) {
+        if (match[1] !== undefined) tokens.push(match[1]);
+        else if (match[2] !== undefined) tokens.push(parseInt(match[2], 10));
+      }
+
+      let cur = updated;
+      for (let i = 0; i < tokens.length - 1; i++) {
+        const t = tokens[i];
+        if (cur[t] === undefined) return;
+        cur = cur[t];
+      }
+      if (tokens.length > 0) {
+        cur[tokens[tokens.length - 1]] = newValue;
+      }
+
+      const newText = JSON.stringify(updated, null, getIndentString(indent));
+      setInput(newText);
+      handleFormat(newText);
+    },
+    [parsedData, indent, handleFormat]
+  );
 
   // Auto Repair direct action
   const handleApplyRepair = useCallback(
@@ -599,7 +776,47 @@ export function JsonWorkspace({ initialMode = 'format' }: JsonWorkspaceProps) {
         onToggleAutoFormat={handleToggleAutoFormat}
         statusMessage={statusMessage}
         statusType={statusType}
+        isJson5Mode={isJson5Mode}
+        onToggleJson5Mode={() => {
+          const next = !isJson5Mode;
+          setIsJson5Mode(next);
+          setStatusMessage(next ? 'JSON5 mode active' : 'Standard JSON mode active');
+          setStatusType('ready');
+        }}
+        onOpenCodeGen={() => setIsCodeGenOpen(true)}
+        onOpenDiff={() => setIsDiffOpen(true)}
+        onSortKeys={handleSortKeys}
+        onOneLine={handleOneLine}
+        onStringify={handleStringify}
+        onUnstringify={handleUnstringify}
       />
+
+      {/* JSON5 Active Mode Notification Banner */}
+      {isJson5Mode && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 16px', background: 'rgba(234, 179, 8, 0.12)', borderBottom: '1px solid rgba(234, 179, 8, 0.3)', color: 'var(--color-text-primary)', fontSize: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Sparkles size={14} style={{ color: '#eab308' }} />
+            <span><strong>JSON5 Mode Active:</strong> Parsing with support for comments, unquoted keys, trailing commas, and hex numbers.</span>
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              type="button"
+              className="btn btn-secondary btn-xs"
+              onClick={handleConvertJson5ToStandard}
+              title="Convert JSON5 input to standard strict JSON"
+            >
+              Convert to Standard JSON
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary btn-xs"
+              onClick={() => setIsJson5Mode(false)}
+            >
+              Exit JSON5 Mode
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Large File & Worker Processing Indicator */}
       {isLargeFile && (
@@ -780,7 +997,7 @@ export function JsonWorkspace({ initialMode = 'format' }: JsonWorkspaceProps) {
       {viewMode === 'tree' && (
         <div className="json-structured-view-container" data-testid="json-tree-container">
           {parsedData !== null ? (
-            <JsonTreeView data={parsedData} />
+            <JsonTreeView data={parsedData} onEditValue={handleTreeEditValue} />
           ) : (
             <div className="json-empty-structured-state">
               <AlertTriangle size={28} className="text-warning" />
@@ -855,6 +1072,19 @@ export function JsonWorkspace({ initialMode = 'format' }: JsonWorkspaceProps) {
           handleFormat(c);
           if (name) addRecentFile(name, c);
         }}
+      />
+
+      <JsonCodeGenModal
+        isOpen={isCodeGenOpen}
+        onClose={() => setIsCodeGenOpen(false)}
+        jsonContent={output || input}
+      />
+
+      <JsonDiffModal
+        isOpen={isDiffOpen}
+        onClose={() => setIsDiffOpen(false)}
+        originalJson={input}
+        modifiedJson={output}
       />
     </div>
   );

@@ -13,6 +13,7 @@ import {
   ArrowUp,
   ArrowDown,
   Layers,
+  Edit3,
 } from 'lucide-react';
 import { JsonDataType } from '../types/json.types';
 import { useClipboard } from '@/hooks/useClipboard';
@@ -20,9 +21,10 @@ import { useClipboard } from '@/hooks/useClipboard';
 interface JsonTreeViewProps {
   data: any;
   onSelectPath?: (path: string) => void;
+  onEditValue?: (path: string, newValue: any) => void;
 }
 
-export function JsonTreeView({ data, onSelectPath }: JsonTreeViewProps) {
+export function JsonTreeView({ data, onSelectPath, onEditValue }: JsonTreeViewProps) {
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(() => new Set(['$']));
   const [searchQuery, setSearchQuery] = useState('');
   const [isCaseSensitive, setIsCaseSensitive] = useState(false);
@@ -31,6 +33,8 @@ export function JsonTreeView({ data, onSelectPath }: JsonTreeViewProps) {
   const [activePath, setActivePath] = useState<string>('$');
   const [activeMatchIndex, setActiveMatchIndex] = useState<number>(0);
   const [copiedAction, setCopiedAction] = useState<string | null>(null);
+  const [editingPath, setEditingPath] = useState<string | null>(null);
+  const [editingVal, setEditingVal] = useState<string>('');
 
   const { copy } = useClipboard();
 
@@ -224,6 +228,26 @@ export function JsonTreeView({ data, onSelectPath }: JsonTreeViewProps) {
     onSelectPath?.(path);
   };
 
+  const handleStartEdit = (path: string, val: any) => {
+    setEditingPath(path);
+    setEditingVal(val === null ? 'null' : String(val));
+  };
+
+  const handleCommitEdit = (path: string, originalType: JsonDataType) => {
+    if (!editingPath) return;
+    let parsed: any = editingVal;
+    if (originalType === 'number') {
+      const num = Number(editingVal);
+      if (!isNaN(num)) parsed = num;
+    } else if (originalType === 'boolean') {
+      parsed = editingVal.toLowerCase() === 'true';
+    } else if (originalType === 'null' && editingVal.trim() === 'null') {
+      parsed = null;
+    }
+    onEditValue?.(path, parsed);
+    setEditingPath(null);
+  };
+
   const renderNode = (keyName: string, value: any, path: string, depth: number) => {
     const isObject = typeof value === 'object' && value !== null;
     const isArray = Array.isArray(value);
@@ -281,8 +305,37 @@ export function JsonTreeView({ data, onSelectPath }: JsonTreeViewProps) {
             <span className="tree-node-meta">
               {isArray ? `Array[${childCount}]` : `{${childCount} ${childCount === 1 ? 'prop' : 'props'}}`}
             </span>
+          ) : editingPath === path ? (
+            <input
+              type="text"
+              autoFocus
+              className="tree-edit-input"
+              value={editingVal}
+              onChange={(e) => setEditingVal(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleCommitEdit(path, type);
+                if (e.key === 'Escape') setEditingPath(null);
+              }}
+              onBlur={() => handleCommitEdit(path, type)}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                fontSize: '12px',
+                padding: '2px 6px',
+                borderRadius: '4px',
+                border: '1px solid var(--color-primary)',
+                background: 'var(--color-bg-primary)',
+                color: 'var(--color-text-primary)',
+              }}
+            />
           ) : (
-            <span className={`tree-node-value tree-type-${type}`} data-testid={`tree-value-${path}`}>
+            <span
+              className={`tree-node-value tree-type-${type}`}
+              data-testid={`tree-value-${path}`}
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                if (onEditValue) handleStartEdit(path, value);
+              }}
+            >
               {type === 'string' ? `"${value}"` : String(value)}
             </span>
           )}
@@ -292,6 +345,20 @@ export function JsonTreeView({ data, onSelectPath }: JsonTreeViewProps) {
 
           {/* Contextual Node Actions */}
           <div className="tree-node-actions">
+            {!isObject && onEditValue && editingPath !== path && (
+              <button
+                type="button"
+                className="tree-action-btn"
+                title="Edit Value"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleStartEdit(path, value);
+                }}
+              >
+                <Edit3 size={11} />
+                <span className="action-hover-hint">Edit</span>
+              </button>
+            )}
             {isObject && (
               <button
                 type="button"
