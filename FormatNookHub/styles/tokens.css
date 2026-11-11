@@ -60,9 +60,9 @@
   --transition-fast: 150ms ease;
   --transition-normal: 250ms ease;
 
-  /* Dimensions */
+  /* Dimensions - Expanded for Global Full-Width (96-98% viewport utilization) */
   --header-height: 64px;
-  --max-width: 1320px;
+  --max-width: 1920px;
 }
 
 [data-theme='dark'] {

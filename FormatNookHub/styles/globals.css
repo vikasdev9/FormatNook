@@ -93,16 +93,32 @@ input, textarea, select {
 }
 
 .container {
-  width: 100%;
-  max-width: var(--max-width);
+  width: min(97%, var(--max-width));
   margin-left: auto;
   margin-right: auto;
   padding-left: 1.5rem;
   padding-right: 1.5rem;
 }
 
-@media (max-width: 640px) {
+@media (min-width: 1200px) and (max-width: 1439px) {
   .container {
+    width: min(96%, var(--max-width));
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1199px) {
+  .container {
+    width: min(95%, var(--max-width));
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+@media (max-width: 767px) {
+  .container {
+    width: 100%;
     padding-left: 1rem;
     padding-right: 1rem;
   }
