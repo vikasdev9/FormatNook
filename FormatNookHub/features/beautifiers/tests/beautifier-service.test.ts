@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   formatSql,
   formatHtml,
+  tokenizeHtml,
   formatCss,
   formatJavascript,
 } from '../services/beautifier-service';
@@ -22,6 +23,57 @@ describe('beautifier-service', () => {
     expect(result.isValid).toBe(true);
     expect(result.output).toContain('  <section>');
     expect(result.output).toContain('    <h1>');
+  });
+
+  describe('formatHtml quote-aware attribute parsing', () => {
+    it('preserves greater-than inside double-quoted attribute values without splitting tags', () => {
+      const html = '<form><input pattern="[0-9]>" /></form>';
+      const result = formatHtml(html, '2');
+      expect(result.isValid).toBe(true);
+      expect(result.output).toBe('<form>\n  <input pattern="[0-9]>" />\n</form>');
+    });
+
+    it('preserves greater-than inside single-quoted attribute values', () => {
+      const html = '<div><span data-expr=\'x > y\'>Condition</span></div>';
+      const result = formatHtml(html, '2');
+      expect(result.isValid).toBe(true);
+      expect(result.output).toContain('  <span data-expr=\'x > y\'>');
+      expect(result.output).toContain('    Condition');
+      expect(result.output).toContain('  </span>');
+    });
+
+    it('correctly formats void tags like input, img, br, and hr without increasing depth', () => {
+      const html = '<div><img src="pic.png"><br><hr><input type="text"><p>Next</p></div>';
+      const result = formatHtml(html, '2');
+      expect(result.isValid).toBe(true);
+      expect(result.output).toContain('  <img src="pic.png">');
+      expect(result.output).toContain('  <br>');
+      expect(result.output).toContain('  <hr>');
+      expect(result.output).toContain('  <input type="text">');
+      expect(result.output).toContain('  <p>');
+      expect(result.output).toContain('    Next');
+      expect(result.output).toContain('  </p>');
+    });
+
+    it('handles comments containing greater-than arrows', () => {
+      const html = '<div><!-- check: if x > y --><span>Text</span></div>';
+      const result = formatHtml(html, '2');
+      expect(result.isValid).toBe(true);
+      expect(result.output).toContain('  <!-- check: if x > y -->');
+      expect(result.output).toContain('  <span>');
+    });
+
+    it('tokenizes HTML correctly with tokenizeHtml helper', () => {
+      const tokens = tokenizeHtml('<div class="box"><input pattern="[0-9]>" /><span>Text</span></div>');
+      expect(tokens).toEqual([
+        '<div class="box">',
+        '<input pattern="[0-9]>" />',
+        '<span>',
+        'Text',
+        '</span>',
+        '</div>',
+      ]);
+    });
   });
 
   it('formats CSS rules and properties', () => {

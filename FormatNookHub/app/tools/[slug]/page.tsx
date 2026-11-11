@@ -9,7 +9,6 @@ import { ToolPageLayout } from '@/components/workspace/ToolPageLayout';
 import { JsonWorkspace } from '@/features/json';
 import { XmlWorkspace } from '@/features/xml';
 import { YamlWorkspace } from '@/features/yaml';
-import { TextBase64Workspace, ImageBase64Workspace } from '@/features/base64';
 import { BeautifierWorkspace } from '@/features/beautifiers';
 import { EncoderDecoderWorkspace, BasicAuthWorkspace } from '@/features/encoders-decoders';
 import { TextDiffWorkspace } from '@/features/diff';
@@ -91,13 +90,54 @@ export default function ToolPage({ params }: ToolPageProps) {
 
       // Base64 Tools
       case 'text-to-base64':
-        return <TextBase64Workspace initialMode="encode" />;
+        return (
+          <EncoderDecoderWorkspace
+            toolId="text-to-base64"
+            direction="encode"
+            pairedSlug="base64-to-text"
+            pairedName="Base64 to Text"
+            defaultSample="Hello, FormatNook Developer! 🚀"
+            outputFileName="text-base64.txt"
+          />
+        );
       case 'base64-to-text':
-        return <TextBase64Workspace initialMode="decode" />;
+        return (
+          <EncoderDecoderWorkspace
+            toolId="base64-to-text"
+            direction="decode"
+            pairedSlug="text-to-base64"
+            pairedName="Text to Base64"
+            defaultSample="SGVsbG8sIEZvcm1hdE5vb2sgRGV2ZWxvcGVyISDwn5mA"
+            outputFileName="decoded-text.txt"
+          />
+        );
       case 'image-to-base64':
-        return <ImageBase64Workspace initialMode="image-to-base64" />;
+        return (
+          <EncoderDecoderWorkspace
+            toolId="image-to-base64"
+            direction="encode"
+            pairedSlug="base64-to-image"
+            pairedName="Base64 to Image"
+            acceptedExtensions={['.png', '.jpg', '.jpeg', '.webp', '.gif', '.svg']}
+            fileCategory="image"
+            outputFileName="image-base64.txt"
+            mimeType="image/png"
+          />
+        );
       case 'base64-to-image':
-        return <ImageBase64Workspace initialMode="base64-to-image" />;
+        return (
+          <EncoderDecoderWorkspace
+            toolId="base64-to-image"
+            direction="decode"
+            pairedSlug="image-to-base64"
+            pairedName="Image to Base64"
+            acceptedExtensions={['.txt', '.b64']}
+            fileCategory="image"
+            outputFileName="decoded-image.png"
+            mimeType="image/png"
+            defaultSample="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+          />
+        );
 
       // Extended Encoders & Decoders Suite
       case 'file-to-base64':

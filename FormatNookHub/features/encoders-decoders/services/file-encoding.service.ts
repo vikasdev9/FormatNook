@@ -8,7 +8,8 @@ export const MAX_FILE_SIZE_DEFAULT = 25 * 1024 * 1024; // 25 MB safe browser lim
 export const MAX_VIDEO_SIZE_DEFAULT = 50 * 1024 * 1024; // 50 MB
 
 /**
- * Encodes a File or Blob into raw Base64 and complete Data URI
+ * Encodes a File or Blob into raw Base64 and complete Data URI.
+ * Leverages native browser FileReader.readAsDataURL when available to minimize JS heap allocations.
  */
 export async function encodeFileToBase64(
   file: File | Blob,
@@ -16,11 +17,26 @@ export async function encodeFileToBase64(
 ): Promise<EncodingResult & { dataUri: string; mimeType: string; originalName: string }> {
   const originalName = fileName || (file instanceof File ? file.name : 'uploaded-file');
   const mimeType = file.type || 'application/octet-stream';
-  const arrayBuffer = await file.arrayBuffer();
-  const bytes = new Uint8Array(arrayBuffer);
 
-  const rawBase64 = bytesToBase64(bytes);
-  const dataUri = `data:${mimeType};base64,${rawBase64}`;
+  let rawBase64 = '';
+  let dataUri = '';
+
+  if (typeof FileReader !== 'undefined') {
+    dataUri = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(new Error('Failed to read file as Data URL.'));
+      reader.onabort = () => reject(new Error('File reading was aborted.'));
+      reader.readAsDataURL(file);
+    });
+    const commaIndex = dataUri.indexOf(',');
+    rawBase64 = commaIndex !== -1 ? dataUri.slice(commaIndex + 1) : dataUri;
+  } else {
+    const arrayBuffer = await file.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuffer);
+    rawBase64 = bytesToBase64(bytes);
+    dataUri = `data:${mimeType};base64,${rawBase64}`;
+  }
 
   const { displayText, isTruncated } = truncateForDisplay(rawBase64);
 
@@ -35,7 +51,6 @@ export async function encodeFileToBase64(
     originalName,
     isValid: true,
     issues: [],
-    rawBytes: bytes,
   };
 }
 

@@ -12,7 +12,7 @@
 ### Key Architectural Pillars:
 
 1. **100% Client-Side Privacy**: Code snippets, payloads, images, and SQL queries are processed locally by client JavaScript. Zero sensitive data is uploaded or logged.
-2. **Feature-Driven Modular Architecture**: Every tool belongs to an isolated, self-contained feature module (`features/json`, `features/xml`, `features/yaml`, `features/base64`, `features/beautifiers`).
+2. **Feature-Driven Modular Architecture**: Every tool belongs to an isolated, self-contained feature module (`features/json`, `features/xml`, `features/yaml`, `features/encoders-decoders`, `features/beautifiers`).
 3. **Typed Central Tool Registry**: All routes, metadata, SEO configurations, category groupings, and search indexes are centrally registered in `config/tools.ts`.
 4. **Zero-Inline-CSS Strict Styling**: All design tokens, theme variables, component styles, and workspace grids reside in dedicated CSS files (`styles/tokens.css`, `styles/globals.css`, `styles/components.css`, `styles/workspace.css`, `styles/home.css`, `styles/adslot.css`).
 5. **SEO & AdSense Ready**: Automatic JSON-LD schema generation (`WebApplication`, `BreadcrumbList`, `FAQPage`), dynamic XML sitemap (`/sitemap.xml`), robots.txt, and reserved, non-intrusive AdSense placeholders.

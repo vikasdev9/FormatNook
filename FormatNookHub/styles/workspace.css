@@ -2712,6 +2712,8 @@
     cursor: col-resize;
     position: relative;
     user-select: none;
+    touch-action: none;
+    outline: none;
     z-index: 10;
     align-self: stretch;
     min-height: 100%;
@@ -2727,9 +2729,11 @@
   }
 
   .json-resizable-grid .workspace-split-resizer:hover .workspace-split-resizer-line,
-  .json-resizable-grid .workspace-split-resizer:active .workspace-split-resizer-line {
+  .json-resizable-grid .workspace-split-resizer:active .workspace-split-resizer-line,
+  .json-resizable-grid .workspace-split-resizer:focus-visible .workspace-split-resizer-line {
     background-color: var(--accent-primary);
     width: 6px;
+    box-shadow: 0 0 0 2px var(--accent-soft);
   }
 }
 

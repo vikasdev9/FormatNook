@@ -1,23 +1,22 @@
 import { cleanBase64, padBase64 } from '../utils/base64.utils';
 import { ValidationIssue } from '@/types/tool';
 
-const CHUNK_SIZE = 8192;
+const CHUNK_SIZE = 16384; // 16KB: safe call-stack limit across all browser JS engines
 
 /**
- * Converts Uint8Array bytes to Base64 using chunking to avoid call-stack overflow on large arrays.
+ * Converts Uint8Array bytes to Base64 using vectorized chunking to avoid call-stack overflow
+ * and intermediate string reallocation on large inputs (e.g. 10MB–50MB).
  */
 export function bytesToBase64(bytes: Uint8Array, urlSafe = false): string {
-  let binary = '';
+  if (bytes.length === 0) return '';
+
+  const parts: string[] = [];
   for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
     const chunk = bytes.subarray(i, i + CHUNK_SIZE);
-    let chunkStr = '';
-    for (let j = 0; j < chunk.length; j++) {
-      chunkStr += String.fromCharCode(chunk[j]);
-    }
-    binary += chunkStr;
+    parts.push(String.fromCharCode.apply(null, chunk as unknown as number[]));
   }
 
-  let base64 = btoa(binary);
+  let base64 = btoa(parts.join(''));
 
   if (urlSafe) {
     base64 = base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');

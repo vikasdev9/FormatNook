@@ -81,4 +81,54 @@ describe('text-encoding.service', () => {
     expect(creds.username).toBe('api_user_key');
     expect(creds.password).toBe('');
   });
+
+  describe('Base64 consolidated requirements', () => {
+    it('encodes and decodes multi-byte Unicode strings and complex emojis', () => {
+      const complexText = 'FormatNook 👩🏽‍💻 🚀 🌟 繁體中文 العربية Русский';
+      const encoded = encodeText(complexText);
+      expect(encoded.isValid).toBe(true);
+
+      const decoded = decodeToText(encoded.output);
+      expect(decoded.isValid).toBe(true);
+      expect(decoded.output).toBe(complexText);
+    });
+
+    it('handles large text inputs efficiently without stack overflow', () => {
+      // 100KB text
+      const largeText = 'A'.repeat(100 * 1024);
+      const encoded = encodeText(largeText);
+      expect(encoded.isValid).toBe(true);
+      expect(encoded.output.length).toBeGreaterThan(100 * 1024);
+
+      const decoded = decodeToText(encoded.output);
+      expect(decoded.isValid).toBe(true);
+      expect(decoded.output.length).toBe(100 * 1024);
+    });
+
+    it('handles empty inputs gracefully', () => {
+      const emptyEncoded = encodeText('');
+      expect(emptyEncoded.output).toBe('');
+      expect(emptyEncoded.isValid).toBe(true);
+
+      const emptyDecoded = decodeToText('');
+      expect(emptyDecoded.isValid).toBe(false);
+      expect(emptyDecoded.output).toBe('');
+    });
+
+    it('detects binary image data and provides hex inspection rather than garbled text', () => {
+      // 1x1 transparent PNG data in Base64
+      const pngB64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+      const decoded = decodeToText(pngB64);
+      expect(decoded.isValid).toBe(true);
+      expect(decoded.isBinary).toBe(true);
+      expect(decoded.hexPreview).toContain('89 50 4E 47'); // PNG magic bytes
+    });
+
+    it('rejects invalid Base64 sequences with meaningful diagnostics', () => {
+      const invalid = 'SGVsbG8===InvalidChars***';
+      const decoded = decodeToText(invalid);
+      expect(decoded.isValid).toBe(false);
+      expect(decoded.issues.length).toBeGreaterThan(0);
+    });
+  });
 });

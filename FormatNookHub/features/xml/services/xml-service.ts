@@ -45,12 +45,15 @@ export function validateXml(input: string): { isValid: boolean; issues: Validati
     }
   }
 
-  // Server-side / Node fallback tag validator
+  // Server-side / Node fallback tag validator (strip comments & CDATA first)
+  const cleanedInput = input
+    .replace(/<!\[CDATA\[[\s\S]*?\]\]>/g, '')
+    .replace(/<!--[\s\S]*?-->/g, '');
   const tagRegex = /<(\/?[a-zA-Z0-9_:-]+)([^>]*)>/g;
   const stack: { tag: string; line: number }[] = [];
   let match: RegExpExecArray | null;
 
-  const lines = input.split('\n');
+  const lines = cleanedInput.split('\n');
   const getLineNumber = (index: number) => {
     let count = 0;
     for (let i = 0; i < lines.length; i++) {
@@ -60,7 +63,7 @@ export function validateXml(input: string): { isValid: boolean; issues: Validati
     return lines.length;
   };
 
-  while ((match = tagRegex.exec(input)) !== null) {
+  while ((match = tagRegex.exec(cleanedInput)) !== null) {
     const rawTag = match[1];
     const attrs = match[2];
     const isSelfClosing = attrs.trim().endsWith('/') || rawTag.startsWith('?') || rawTag.startsWith('!');
@@ -182,8 +185,46 @@ export function formatXml(input: string, indent: IndentOption = '2'): ToolExecut
   };
 }
 
+function minifyTag(tag: string): string {
+  let result = '';
+  let inDouble = false;
+  let inSingle = false;
+  let prevWasSpace = false;
+
+  for (let i = 0; i < tag.length; i++) {
+    const ch = tag[i];
+    if (ch === '"' && !inSingle) {
+      inDouble = !inDouble;
+      result += ch;
+      prevWasSpace = false;
+    } else if (ch === "'" && !inDouble) {
+      inSingle = !inSingle;
+      result += ch;
+      prevWasSpace = false;
+    } else if (inDouble || inSingle) {
+      result += ch;
+      prevWasSpace = false;
+    } else if (/\s/.test(ch)) {
+      if (!prevWasSpace) {
+        result += ' ';
+        prevWasSpace = true;
+      }
+    } else {
+      if (
+        prevWasSpace &&
+        (ch === '>' || (ch === '/' && tag[i + 1] === '>') || (ch === '?' && tag[i + 1] === '>'))
+      ) {
+        result = result.slice(0, -1);
+      }
+      result += ch;
+      prevWasSpace = false;
+    }
+  }
+  return result;
+}
+
 /**
- * Minifies XML by removing spaces between tags
+ * Minifies XML by removing spaces between tags while preserving text node content and CDATA.
  */
 export function minifyXml(input: string): ToolExecutionResult {
   const start = performance.now();
@@ -201,16 +242,27 @@ export function minifyXml(input: string): ToolExecutionResult {
     };
   }
 
-  const minified = input
-    .replace(/>\s+</g, '><')
-    .replace(/\s+/g, ' ')
-    .replace(/> </g, '><')
-    .trim();
+  const tokenRegex = /(<!\[CDATA\[[\s\S]*?\]\]>|<!--[\s\S]*?-->|<\?[\s\S]*?\?>|<!DOCTYPE[\s\S]*?>|<(?:"[^"]*"|'[^']*'|[^'">])+>|[^<]+)/g;
+  const tokens = input.match(tokenRegex) || [];
 
-  const outputSize = new Blob([minified]).size;
+  let result = '';
+  for (const token of tokens) {
+    if (token.startsWith('<![CDATA[') || token.startsWith('<!--')) {
+      result += token;
+    } else if (token.startsWith('<')) {
+      result += minifyTag(token);
+    } else {
+      if (!/^\s+$/.test(token)) {
+        result += token;
+      }
+    }
+  }
+
+  const finalOutput = result.trim();
+  const outputSize = new Blob([finalOutput]).size;
 
   return {
-    output: minified,
+    output: finalOutput,
     isValid: true,
     issues: [],
     inputSize,

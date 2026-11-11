@@ -58,4 +58,39 @@ describe('base64.service', () => {
     expect(roundTrip.isValid).toBe(true);
     expect(roundTrip.bytes.length).toBe(large.length);
   });
+
+  it('handles empty input gracefully', () => {
+    expect(bytesToBase64(new Uint8Array(0))).toBe('');
+    const decoded = base64ToBytes('');
+    expect(decoded.isValid).toBe(false);
+    expect(decoded.bytes.length).toBe(0);
+  });
+
+  it('preserves multi-byte Unicode, emoji, and non-Latin characters round-trip', () => {
+    const text = 'Hello 世界 🌍! Special chars: àéîöñ — Привет мир! 🚀🔥';
+    const bytes = new TextEncoder().encode(text);
+    const b64 = bytesToBase64(bytes);
+    const decoded = base64ToBytes(b64);
+    expect(decoded.isValid).toBe(true);
+    const recoveredText = new TextDecoder().decode(decoded.bytes);
+    expect(recoveredText).toBe(text);
+  });
+
+  it('processes 10MB payload safely with exact round-trip integrity', () => {
+    const size = 10 * 1024 * 1024;
+    const large = new Uint8Array(size);
+    for (let i = 0; i < size; i++) {
+      large[i] = (i * 31) % 256;
+    }
+    const b64 = bytesToBase64(large);
+    expect(b64.length).toBe(Math.ceil(size / 3) * 4);
+
+    const decoded = base64ToBytes(b64);
+    expect(decoded.isValid).toBe(true);
+    expect(decoded.bytes.length).toBe(size);
+    // Spot-check byte equality
+    expect(decoded.bytes[0]).toBe(large[0]);
+    expect(decoded.bytes[size - 1]).toBe(large[size - 1]);
+    expect(decoded.bytes[Math.floor(size / 2)]).toBe(large[Math.floor(size / 2)]);
+  });
 });

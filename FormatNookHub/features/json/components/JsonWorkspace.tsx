@@ -175,6 +175,14 @@ export function JsonWorkspace({ initialMode = 'format' }: JsonWorkspaceProps) {
             setStatusMessage('Formatting failed');
             setStatusType('error');
           }
+        } catch (err: any) {
+          setValidationState({
+            isValid: false,
+            issues: [{ message: err?.message || 'Formatting failed in background worker', severity: 'error' }],
+          });
+          setIsOutdated(true);
+          setStatusMessage('Formatting failed');
+          setStatusType('error');
         } finally {
           setIsWorkerRunning(false);
           setWorkerProgressMsg('');
@@ -289,6 +297,14 @@ export function JsonWorkspace({ initialMode = 'format' }: JsonWorkspaceProps) {
           setStatusMessage('Minification failed');
           setStatusType('error');
         }
+      } catch (err: any) {
+        setValidationState({
+          isValid: false,
+          issues: [{ message: err?.message || 'Minification failed in background worker', severity: 'error' }],
+        });
+        setIsOutdated(true);
+        setStatusMessage('Minification failed');
+        setStatusType('error');
       } finally {
         setIsWorkerRunning(false);
         setWorkerProgressMsg('');
@@ -388,15 +404,28 @@ export function JsonWorkspace({ initialMode = 'format' }: JsonWorkspaceProps) {
     setWorkerProgressMsg('');
   };
 
-  // Resizable Panels Mouse Handlers
-  const handleMouseDownResizer = (e: React.MouseEvent) => {
+  // Resizable Panels Pointer Handlers (supports Mouse, Touchscreen, Stylus)
+  const handlePointerDownResizer = (e: React.PointerEvent<HTMLDivElement>) => {
+    // Only primary pointer button (left click or touch tap)
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
     e.preventDefault();
     isDraggingRef.current = true;
     let currentRatio = panelsRatio;
 
-    const handleMouseMove = (moveEvent: MouseEvent) => {
+    const targetElement = e.currentTarget;
+    const pointerId = e.pointerId;
+    if (targetElement.setPointerCapture) {
+      try {
+        targetElement.setPointerCapture(pointerId);
+      } catch {
+        // Fallback for environments where setPointerCapture is unsupported
+      }
+    }
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
       if (!isDraggingRef.current || !gridRef.current) return;
       const rect = gridRef.current.getBoundingClientRect();
+      if (rect.width <= 0) return;
       const newRatio = ((moveEvent.clientX - rect.left) / rect.width) * 100;
       if (newRatio >= 20 && newRatio <= 80) {
         currentRatio = Math.round(newRatio);
@@ -406,15 +435,52 @@ export function JsonWorkspace({ initialMode = 'format' }: JsonWorkspaceProps) {
       }
     };
 
-    const handleMouseUp = () => {
+    const handlePointerUpOrCancel = () => {
+      if (!isDraggingRef.current) return;
       isDraggingRef.current = false;
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
+      if (targetElement.releasePointerCapture) {
+        try {
+          targetElement.releasePointerCapture(pointerId);
+        } catch {
+          // ignore
+        }
+      }
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUpOrCancel);
+      window.removeEventListener('pointercancel', handlePointerUpOrCancel);
       savePreferences({ panelsRatio: currentRatio });
     };
 
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUpOrCancel);
+    window.addEventListener('pointercancel', handlePointerUpOrCancel);
+  };
+
+  // Keyboard accessibility for resizer
+  const handleResizerKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    let newRatio = panelsRatio;
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      newRatio = Math.max(20, panelsRatio - (e.shiftKey ? 10 : 2));
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      newRatio = Math.min(80, panelsRatio + (e.shiftKey ? 10 : 2));
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      newRatio = 50;
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      newRatio = 50;
+    } else {
+      return;
+    }
+
+    setPanelsRatio(newRatio);
+    if (gridRef.current) {
+      gridRef.current.style.setProperty('--panels-left', `${newRatio}fr`);
+      gridRef.current.style.setProperty('--panels-right', `${100 - newRatio}fr`);
+    }
+    savePreferences({ panelsRatio: newRatio });
   };
 
   // Reset panels ratio to 50/50
@@ -425,6 +491,14 @@ export function JsonWorkspace({ initialMode = 'format' }: JsonWorkspaceProps) {
       gridRef.current.style.setProperty('--panels-right', '50fr');
     }
     savePreferences({ panelsRatio: 50 });
+  }, []);
+
+  // Safe Web Worker lifecycle management: acquire on mount, release on unmount
+  useEffect(() => {
+    const releaseWorker = jsonWorkerClient.acquire();
+    return () => {
+      releaseWorker();
+    };
   }, []);
 
   // Auto-format or initialize on mount
@@ -640,12 +714,20 @@ export function JsonWorkspace({ initialMode = 'format' }: JsonWorkspaceProps) {
               </div>
             </div>
 
-            {/* Draggable Resizer Gutter */}
+            {/* Draggable Resizer Gutter with Pointer Events and Keyboard Accessibility */}
             <div
               className="workspace-split-resizer"
-              onMouseDown={handleMouseDownResizer}
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize input and output panels"
+              aria-valuenow={panelsRatio}
+              aria-valuemin={20}
+              aria-valuemax={80}
+              tabIndex={0}
+              onPointerDown={handlePointerDownResizer}
+              onKeyDown={handleResizerKeyDown}
               onDoubleClick={handleResetRatio}
-              title="Drag to resize panels • Double-click to reset (50/50)"
+              title="Drag or use Left/Right arrows to resize panels • Double-click to reset (50/50)"
               data-testid="workspace-panels-resizer"
             >
               <div className="workspace-split-resizer-line" />

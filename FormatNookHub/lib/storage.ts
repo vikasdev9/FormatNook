@@ -6,17 +6,20 @@ export function getRecentToolIds(): string[] {
   if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem(RECENT_TOOLS_KEY);
-    return raw ? JSON.parse(raw) : [];
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
   }
 }
 
 export function addRecentToolId(toolId: string): void {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined' || !toolId || !toolId.trim()) return;
   try {
-    const existing = getRecentToolIds().filter((id) => id !== toolId);
-    const updated = [toolId, ...existing].slice(0, MAX_RECENTS);
+    const cleanId = toolId.trim();
+    const existing = getRecentToolIds().filter((id) => id !== cleanId);
+    const updated = [cleanId, ...existing].slice(0, MAX_RECENTS);
     localStorage.setItem(RECENT_TOOLS_KEY, JSON.stringify(updated));
   } catch {
     // Ignore localStorage errors
@@ -27,24 +30,27 @@ export function getFavoriteToolIds(): string[] {
   if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem(FAVORITE_TOOLS_KEY);
-    return raw ? JSON.parse(raw) : [];
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
   }
 }
 
 export function toggleFavoriteToolId(toolId: string): boolean {
-  if (typeof window === 'undefined') return false;
+  if (typeof window === 'undefined' || !toolId || !toolId.trim()) return false;
   try {
+    const cleanId = toolId.trim();
     const existing = getFavoriteToolIds();
     let updated: string[];
     let isNowFavorite = false;
 
-    if (existing.includes(toolId)) {
-      updated = existing.filter((id) => id !== toolId);
+    if (existing.includes(cleanId)) {
+      updated = existing.filter((id) => id !== cleanId);
       isNowFavorite = false;
     } else {
-      updated = [...existing, toolId];
+      updated = [...existing, cleanId];
       isNowFavorite = true;
     }
 

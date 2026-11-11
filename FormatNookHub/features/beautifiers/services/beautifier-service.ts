@@ -49,7 +49,92 @@ export function formatSql(input: string, indent: IndentOption = '2'): ToolExecut
 }
 
 /**
- * Formats HTML markup with hierarchical indentation.
+ * Tokenizes HTML into tags, comments, CDATA, and text nodes with full quote awareness.
+ * Correctly treats '>' inside quoted attributes as attribute value content, not tag closers.
+ */
+export function tokenizeHtml(input: string): string[] {
+  const tokens: string[] = [];
+  let i = 0;
+  const len = input.length;
+
+  while (i < len) {
+    if (input[i] === '<') {
+      // HTML comment: <!-- ... -->
+      if (input.startsWith('<!--', i)) {
+        const endComment = input.indexOf('-->', i + 4);
+        if (endComment === -1) {
+          const val = input.slice(i).trim();
+          if (val) tokens.push(val);
+          break;
+        } else {
+          const val = input.slice(i, endComment + 3).trim();
+          if (val) tokens.push(val);
+          i = endComment + 3;
+          continue;
+        }
+      }
+
+      // CDATA: <![CDATA[ ... ]]>
+      if (input.startsWith('<![CDATA[', i)) {
+        const endCdata = input.indexOf(']]>', i + 9);
+        if (endCdata === -1) {
+          const val = input.slice(i).trim();
+          if (val) tokens.push(val);
+          break;
+        } else {
+          const val = input.slice(i, endCdata + 3).trim();
+          if (val) tokens.push(val);
+          i = endCdata + 3;
+          continue;
+        }
+      }
+
+      // Tag scanning with quote awareness
+      let inDouble = false;
+      let inSingle = false;
+      let j = i + 1;
+
+      while (j < len) {
+        const c = input[j];
+        if (c === '\\' && (inDouble || inSingle)) {
+          j += 2;
+          continue;
+        }
+        if (c === '"' && !inSingle) {
+          inDouble = !inDouble;
+        } else if (c === "'" && !inDouble) {
+          inSingle = !inSingle;
+        } else if (c === '>' && !inDouble && !inSingle) {
+          j++;
+          break;
+        }
+        j++;
+      }
+
+      const tagToken = input.slice(i, j).trim();
+      if (tagToken) {
+        tokens.push(tagToken);
+      }
+      i = j;
+    } else {
+      // Text node
+      let j = i;
+      while (j < len && input[j] !== '<') {
+        j++;
+      }
+      const text = input.slice(i, j).trim();
+      if (text) {
+        tokens.push(text);
+      }
+      i = j;
+    }
+  }
+
+  return tokens;
+}
+
+/**
+ * Formats HTML markup with hierarchical indentation and quote-aware tag parsing.
  */
 export function formatHtml(input: string, indent: IndentOption = '2'): ToolExecutionResult {
   const start = performance.now();
@@ -66,13 +151,7 @@ export function formatHtml(input: string, indent: IndentOption = '2'): ToolExecu
       'link', 'meta', 'param', 'source', 'track', 'wbr', '!doctype'
     ]);
 
-    // Tokenize tags and texts
-    const tokens = input
-      .replace(/>\s*</g, '><')
-      .replace(/<([^>]+)>/g, '\n<$1>\n')
-      .split('\n')
-      .map((t) => t.trim())
-      .filter((t) => t.length > 0);
+    const tokens = tokenizeHtml(input);
 
     let depth = 0;
     let formatted = '';
@@ -86,7 +165,12 @@ export function formatHtml(input: string, indent: IndentOption = '2'): ToolExecu
         // Opening tag, self-closing, comment, or doctype
         const tagNameMatch = token.match(/^<([a-zA-Z0-9!:-]+)/);
         const tagName = tagNameMatch ? tagNameMatch[1].toLowerCase() : '';
-        const isSelfClosing = token.endsWith('/>') || voidTags.has(tagName) || token.startsWith('<!--');
+        const isSelfClosing =
+          token.endsWith('/>') ||
+          voidTags.has(tagName) ||
+          token.startsWith('<!--') ||
+          token.startsWith('<!') ||
+          token.startsWith('<?');
 
         formatted += indentStr.repeat(depth) + token + '\n';
         if (!isSelfClosing) {
