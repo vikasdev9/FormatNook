@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatJson, validateJson, minifyJson, repairJson } from '../services/json-service';
+import { formatJson, validateJson, minifyJson, repairJson, proposeJsonRepair } from '../services/json-service';
 import { countLogicalLines } from '@/components/workspace/CodeEditor';
 
 describe('json-service', () => {
@@ -98,6 +98,73 @@ describe('json-service', () => {
       expect(countLogicalLines(doc)).toBe(4);
       doc = doc.replace('\nline4', '');
       expect(countLogicalLines(doc)).toBe(3);
+    });
+  });
+
+  describe('repairJson with URLs and comments', () => {
+    it('preserves standard URLs in double-quoted strings', () => {
+      const input = '{"url": "https://formatnook.com"}';
+      const repaired = repairJson(input);
+      expect(repaired).toBe('{"url": "https://formatnook.com"}');
+      expect(JSON.parse(repaired).url).toBe('https://formatnook.com');
+    });
+
+    it('preserves URLs containing double slashes in paths', () => {
+      const input = '{"url": "https://example.com/path//value"}';
+      const repaired = repairJson(input);
+      expect(repaired).toBe('{"url": "https://example.com/path//value"}');
+      expect(JSON.parse(repaired).url).toBe('https://example.com/path//value');
+    });
+
+    it('preserves strings containing // and /* text */ comments inside strings', () => {
+      const input = '{"text": "This contains // and /* text */"}';
+      const repaired = repairJson(input);
+      expect(repaired).toBe('{"text": "This contains // and /* text */"}');
+      expect(JSON.parse(repaired).text).toBe('This contains // and /* text */');
+    });
+
+    it('preserves escaped quotes preceding URLs', () => {
+      const input = '{"text": "escaped quote: \\" and URL https://example.com"}';
+      const repaired = repairJson(input);
+      expect(repaired).toBe('{"text": "escaped quote: \\" and URL https://example.com"}');
+      expect(JSON.parse(repaired).text).toBe('escaped quote: " and URL https://example.com');
+    });
+
+    it('strips actual line comments outside strings', () => {
+      const input = '// leading comment\n{"url": "https://formatnook.com"} // trailing comment';
+      const repaired = repairJson(input);
+      const parsed = JSON.parse(repaired);
+      expect(parsed.url).toBe('https://formatnook.com');
+    });
+
+    it('strips actual block comments outside strings', () => {
+      const input = '/* block start */ {"url": "https://formatnook.com", /* mid */ "ok": true} /* block end */';
+      const repaired = repairJson(input);
+      const parsed = JSON.parse(repaired);
+      expect(parsed.url).toBe('https://formatnook.com');
+      expect(parsed.ok).toBe(true);
+    });
+
+    it('repairs URLs combined with trailing commas and single-quoted properties', () => {
+      const input = `
+        // Config file
+        {
+          website: 'https://formatnook.com/docs',
+          apiEndpoint: "https://api.formatnook.com/v1//sync",
+          tags: ['developer', 'tools', ],
+        }
+      `;
+      const repaired = repairJson(input);
+      const parsed = JSON.parse(repaired);
+      expect(parsed.website).toBe('https://formatnook.com/docs');
+      expect(parsed.apiEndpoint).toBe('https://api.formatnook.com/v1//sync');
+      expect(parsed.tags).toEqual(['developer', 'tools']);
+    });
+
+    it('does not report false comment removal changes in proposeJsonRepair when input only has URLs', () => {
+      const input = '{"url": "https://formatnook.com"}';
+      const proposal = proposeJsonRepair(input);
+      expect(proposal.changes.some((c) => c.includes('comments'))).toBe(false);
     });
   });
 });

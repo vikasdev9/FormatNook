@@ -80,7 +80,10 @@ export class JsEngine implements DiffEngine {
 
     const symbolDiffs = this.diffJsSymbols(formattedOrig, formattedMod);
 
-    const diffResult = computeRawTextDiff(formattedOrig, formattedMod, {
+    const textToCompareOrig = options.prettifyBeforeCompare ? formattedOrig : originalText;
+    const textToCompareMod = options.prettifyBeforeCompare ? formattedMod : modifiedText;
+
+    const diffResult = computeRawTextDiff(textToCompareOrig, textToCompareMod, {
       ...options,
       format: 'text',
     });

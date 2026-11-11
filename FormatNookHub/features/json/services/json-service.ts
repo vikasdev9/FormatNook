@@ -163,26 +163,79 @@ export function minifyJson(input: string): ToolExecutionResult {
 }
 
 /**
+ * Strips single-line (//) and multi-line (/* ... *\/) comments only outside quoted strings.
+ * Preserves URLs, escaped quotes, and string literals containing // or /*.
+ */
+export function stripCommentsOutsideStrings(input: string): { result: string; hasComments: boolean } {
+  let result = '';
+  let inString: '"' | "'" | null = null;
+  let hasComments = false;
+  let i = 0;
+  const len = input.length;
+
+  while (i < len) {
+    const ch = input[i];
+
+    if (inString !== null) {
+      result += ch;
+      if (ch === '\\' && i + 1 < len) {
+        // Escaped character: include escape character and the escaped char
+        i++;
+        result += input[i];
+      } else if (ch === inString) {
+        inString = null;
+      }
+      i++;
+    } else {
+      if (ch === '"' || ch === "'") {
+        inString = ch;
+        result += ch;
+        i++;
+      } else if (ch === '/' && i + 1 < len && input[i + 1] === '/') {
+        // Single-line comment: skip until newline or EOF
+        hasComments = true;
+        i += 2;
+        while (i < len && input[i] !== '\n' && input[i] !== '\r') {
+          i++;
+        }
+      } else if (ch === '/' && i + 1 < len && input[i + 1] === '*') {
+        // Multi-line comment: skip until */ or EOF
+        hasComments = true;
+        i += 2;
+        while (i + 1 < len && !(input[i] === '*' && input[i + 1] === '/')) {
+          i++;
+        }
+        if (i + 1 < len) {
+          i += 2; // Skip closing * and /
+        } else {
+          i = len;
+        }
+      } else {
+        result += ch;
+        i++;
+      }
+    }
+  }
+
+  return { result, hasComments };
+}
+
+/**
  * Explicit repair helper to fix common JSON mistakes (trailing commas, single quotes, unquoted keys, comments)
  */
 export function repairJson(input: string): string {
   if (!input || !input.trim()) return input;
 
-  let repaired = input;
+  // 1. Strip comments outside of strings (preserves URLs and escaped strings)
+  let repaired = stripCommentsOutsideStrings(input).result;
 
-  // Strip single-line comments // ...
-  repaired = repaired.replace(/\/\/[^\n\r]*/g, '');
-
-  // Strip multi-line comments /* ... */
-  repaired = repaired.replace(/\/\*[\s\S]*?\*\//g, '');
-
-  // Replace single quotes surrounding keys and string values with double quotes
+  // 2. Replace single quotes surrounding keys and string values with double quotes
   repaired = repaired.replace(/'([^'\\]*(?:\\.[^'\\]*)*)'/g, '"$1"');
 
-  // Remove trailing commas before closing braces/brackets
+  // 3. Remove trailing commas before closing braces/brackets
   repaired = repaired.replace(/,(\s*[}\]])/g, '$1');
 
-  // Quote unquoted object keys (e.g. { name: "John" } -> { "name": "John" })
+  // 4. Quote unquoted object keys (e.g. { name: "John" } -> { "name": "John" })
   repaired = repaired.replace(/([{,]\s*)([a-zA-Z0-9_$]+)\s*:/g, '$1"$2":');
 
   return repaired;
@@ -195,7 +248,8 @@ export function proposeJsonRepair(input: string): { repaired: string; changes: s
   const changes: string[] = [];
   if (!input || !input.trim()) return { repaired: input, changes: [] };
 
-  if (/\/\/[^\n\r]*|\/\*[\s\S]*?\*\//.test(input)) {
+  const { hasComments } = stripCommentsOutsideStrings(input);
+  if (hasComments) {
     changes.push('Removed JavaScript comments (// and /* */)');
   }
   if (/'([^'\\]*(?:\\.[^'\\]*)*)'/.test(input)) {

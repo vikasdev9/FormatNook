@@ -37,7 +37,7 @@ export function validateYaml(input: string): { isValid: boolean; issues: Validat
   }
 
   try {
-    yaml.load(input);
+    yaml.loadAll(input);
     return { isValid: true, issues: [] };
   } catch (err: any) {
     const line = err?.mark?.line !== undefined ? err.mark.line + 1 : undefined;
@@ -78,14 +78,34 @@ export function formatYaml(input: string, indent: IndentOption = '2'): ToolExecu
   }
 
   try {
-    const parsed = yaml.load(input);
+    const docs = yaml.loadAll(input);
     const indentNum = getYamlIndentNumber(indent);
-    const formatted = yaml.dump(parsed, {
+    const dumpOptions: yaml.DumpOptions = {
       indent: indentNum,
       lineWidth: -1, // Do not wrap long lines automatically
       noRefs: true,
       quotingType: '"',
-    });
+    };
+
+    let formatted: string;
+
+    if (docs.length === 0) {
+      formatted = '';
+    } else if (docs.length === 1) {
+      // Single-document: preserve backward-compatibility without leading ---
+      const singleDoc = docs[0];
+      formatted = singleDoc == null ? '' : yaml.dump(singleDoc, dumpOptions).trimEnd() + '\n';
+    } else {
+      // Multi-document stream: format each document and join with --- separators
+      const formattedDocs = docs.map((doc) => {
+        if (doc == null) {
+          return '';
+        }
+        return yaml.dump(doc, dumpOptions).trimEnd();
+      });
+
+      formatted = formattedDocs.join('\n---\n') + '\n';
+    }
 
     const outputSize = new Blob([formatted]).size;
 
