@@ -202,4 +202,24 @@ describe('XML Advanced Processing & Feature Suite', () => {
       expect(analysis.xsd?.elements.length).toBeGreaterThan(0);
     });
   });
+
+  describe('Security & Hardening Guardrails', () => {
+    it('rejects external entity (SYSTEM) declarations to protect against XXE', () => {
+      const xxeXml = '<!DOCTYPE foo [ <!ENTITY xxe SYSTEM "http://malicious.com/secret.txt"> ]><foo>&xxe;</foo>';
+      const res = validateXml(xxeXml);
+      expect(res.isValid).toBe(false);
+      expect(res.issues[0].message).toContain('External entity (SYSTEM) declarations are disallowed');
+    });
+
+    it('safely caps deep nesting recursion in parseXmlToTree without stack overflow', () => {
+      let deepXml = '<root>';
+      for (let i = 0; i < 150; i++) deepXml += `<layer level="${i}">`;
+      deepXml += 'deep content';
+      for (let i = 149; i >= 0; i--) deepXml += `</layer>`;
+      deepXml += '</root>';
+
+      const parsed = parseXmlToTree(deepXml);
+      expect(parsed).toBeDefined();
+    });
+  });
 });

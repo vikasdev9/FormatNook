@@ -275,27 +275,71 @@ export function YamlWorkspace({ initialMode = 'format' }: YamlWorkspaceProps) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleFormat, handleValidate]);
 
-  // Resizable Panels Handlers
-  const handleMouseDownResize = (e: React.MouseEvent) => {
+  // Resizable Panels Handlers (Pointer events, touch & keyboard accessible)
+  const handlePointerDownResizer = (e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault();
     isDraggingRef.current = true;
-    document.addEventListener('mousemove', handleMouseMoveResize);
-    document.addEventListener('mouseup', handleMouseUpResize);
+    const pointerId = e.pointerId;
+    const targetElement = e.currentTarget;
+
+    if (targetElement.setPointerCapture) {
+      try {
+        targetElement.setPointerCapture(pointerId);
+      } catch {
+        // ignore
+      }
+    }
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      if (!isDraggingRef.current || !gridRef.current) return;
+      const rect = gridRef.current.getBoundingClientRect();
+      if (rect.width <= 0) return;
+      const newRatio = ((moveEvent.clientX - rect.left) / rect.width) * 100;
+      if (newRatio >= 20 && newRatio <= 80) {
+        setPanelsRatio(Math.round(newRatio));
+      }
+    };
+
+    const handlePointerUpOrCancel = () => {
+      if (!isDraggingRef.current) return;
+      isDraggingRef.current = false;
+      if (targetElement.releasePointerCapture) {
+        try {
+          targetElement.releasePointerCapture(pointerId);
+        } catch {
+          // ignore
+        }
+      }
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUpOrCancel);
+      window.removeEventListener('pointercancel', handlePointerUpOrCancel);
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUpOrCancel);
+    window.addEventListener('pointercancel', handlePointerUpOrCancel);
   };
 
-  const handleMouseMoveResize = (e: MouseEvent) => {
-    if (!isDraggingRef.current || !gridRef.current) return;
-    const rect = gridRef.current.getBoundingClientRect();
-    const offsetX = e.clientX - rect.left;
-    const ratio = Math.max(20, Math.min(80, (offsetX / rect.width) * 100));
-    setPanelsRatio(ratio);
+  const handleResizerKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    let newRatio = panelsRatio;
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      newRatio = Math.max(20, panelsRatio - (e.shiftKey ? 10 : 2));
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      newRatio = Math.min(80, panelsRatio + (e.shiftKey ? 10 : 2));
+    } else if (e.key === 'Home' || e.key === 'Enter') {
+      e.preventDefault();
+      newRatio = 50;
+    } else {
+      return;
+    }
+    setPanelsRatio(newRatio);
   };
 
-  const handleMouseUpResize = () => {
-    isDraggingRef.current = false;
-    document.removeEventListener('mousemove', handleMouseMoveResize);
-    document.removeEventListener('mouseup', handleMouseUpResize);
-  };
+  const handleResetRatio = useCallback(() => {
+    setPanelsRatio(50);
+  }, []);
 
   const inputBytes = useMemo(() => new Blob([input]).size, [input]);
   const outputBytes = useMemo(() => new Blob([output]).size, [output]);
@@ -408,9 +452,18 @@ export function YamlWorkspace({ initialMode = 'format' }: YamlWorkspaceProps) {
 
           {/* Draggable Resizer Gutter */}
           <div
-            className="splitter-gutter"
-            onMouseDown={handleMouseDownResize}
-            title="Drag to resize editor panels"
+            className="splitter-gutter workspace-panels-resizer"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Panel size ratio divider"
+            aria-valuenow={panelsRatio}
+            aria-valuemin={20}
+            aria-valuemax={80}
+            tabIndex={0}
+            onPointerDown={handlePointerDownResizer}
+            onKeyDown={handleResizerKeyDown}
+            onDoubleClick={handleResetRatio}
+            title="Drag or use Left/Right arrows to resize panels • Double-click to reset (50/50)"
             data-testid="panel-resizer"
           />
 

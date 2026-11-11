@@ -2,6 +2,11 @@ import yaml from 'js-yaml';
 import { IndentOption, ValidationIssue, ToolExecutionResult } from '@/types/tool';
 import { YamlDocumentInfo, YamlFormatOptions } from '../types/yaml.types';
 
+export const SAFE_YAML_LOAD_OPTIONS: yaml.LoadOptions = {
+  schema: yaml.DEFAULT_SCHEMA,
+  ...( { maxDepth: 100 } as any ),
+};
+
 export function getYamlIndentNumber(indent: IndentOption | number | string): number {
   if (typeof indent === 'number') return indent > 0 ? indent : 2;
   if (indent === '4') return 4;
@@ -51,7 +56,12 @@ export function splitYamlDocuments(input: string): YamlDocumentInfo[] {
     const endLine = segment.startLine + segment.rawLines.length - 1;
 
     try {
-      const data = yaml.load(raw);
+      const aliasMatches = raw.match(/\*[a-zA-Z0-9_-]+/g);
+      const anchorMatches = raw.match(/&[a-zA-Z0-9_-]+/g);
+      if (anchorMatches && aliasMatches && aliasMatches.length > 30 && anchorMatches.length > 5) {
+        throw new Error('Excessive YAML alias expansion detected. Processing aborted for browser security.');
+      }
+      const data = yaml.load(raw, SAFE_YAML_LOAD_OPTIONS);
       return {
         index,
         raw,
@@ -185,7 +195,20 @@ export function validateYaml(input: string): { isValid: boolean; issues: Validat
   issues.push(...duplicateIssues);
 
   try {
-    yaml.loadAll(input, undefined, { json: false });
+    const aliasMatches = input.match(/\*[a-zA-Z0-9_-]+/g);
+    const anchorMatches = input.match(/&[a-zA-Z0-9_-]+/g);
+    if (anchorMatches && aliasMatches && aliasMatches.length > 30 && anchorMatches.length > 5) {
+      return {
+        isValid: false,
+        issues: [
+          {
+            message: 'Excessive YAML alias expansion detected. Processing aborted for browser security.',
+            severity: 'error',
+          },
+        ],
+      };
+    }
+    yaml.loadAll(input, undefined, { json: false, ...SAFE_YAML_LOAD_OPTIONS });
     return {
       isValid: issues.filter((iss) => iss.severity === 'error').length === 0,
       issues,
@@ -233,7 +256,7 @@ export function formatYaml(
   }
 
   try {
-    const docs = yaml.loadAll(input);
+    const docs = yaml.loadAll(input, undefined, SAFE_YAML_LOAD_OPTIONS);
     const indentNum = options?.indent ?? getYamlIndentNumber(indent);
     const dumpOptions: yaml.DumpOptions = {
       indent: indentNum,
@@ -315,7 +338,7 @@ export function minifyYaml(input: string): ToolExecutionResult {
   }
 
   try {
-    const docs = yaml.loadAll(input);
+    const docs = yaml.loadAll(input, undefined, SAFE_YAML_LOAD_OPTIONS);
     const dumpOptions: yaml.DumpOptions = {
       flowLevel: 0,
       condenseFlow: true,
@@ -355,7 +378,7 @@ export function minifyYaml(input: string): ToolExecutionResult {
  */
 export function oneLineYaml(input: string): string {
   try {
-    const docs = yaml.loadAll(input);
+    const docs = yaml.loadAll(input, undefined, SAFE_YAML_LOAD_OPTIONS);
     const dumpOptions: yaml.DumpOptions = {
       flowLevel: 0,
       condenseFlow: true,

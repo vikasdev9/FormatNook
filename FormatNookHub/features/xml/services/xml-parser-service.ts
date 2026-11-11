@@ -31,6 +31,7 @@ export function parseXmlToTree(xml: string): { tree: XmlTreeNode | null; error?:
       let nodeIdCounter = 0;
 
       function convertNode(domNode: Node, xpath: string, depth: number): XmlTreeNode | null {
+        if (depth > 100) return null;
         nodeIdCounter++;
         const id = `xml-node-${nodeIdCounter}`;
 

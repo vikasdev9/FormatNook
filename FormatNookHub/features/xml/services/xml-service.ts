@@ -17,6 +17,19 @@ export function validateXml(input: string): { isValid: boolean; issues: Validati
     };
   }
 
+  // XXE & DTD entity expansion protection
+  if (/<!ENTITY[^>]+SYSTEM/i.test(input) || /<!DOCTYPE[^>]+SYSTEM/i.test(input)) {
+    return {
+      isValid: false,
+      issues: [
+        {
+          message: 'External entity (SYSTEM) declarations are disallowed for client-side security.',
+          severity: 'error',
+        },
+      ],
+    };
+  }
+
   // If running in browser, DOMParser gives instant native XML validation
   if (typeof window !== 'undefined' && typeof window.DOMParser !== 'undefined') {
     try {
@@ -139,7 +152,7 @@ export function formatXml(input: string, indent: IndentOption = '2'): ToolExecut
   }
 
   const indentStr = getIndentSpaces(indent);
-  let formatted = '';
+  const formattedLines: string[] = [];
   let depth = 0;
 
   // Split XML into tokens (tags, text, comments, CDATA)
@@ -165,14 +178,14 @@ export function formatXml(input: string, indent: IndentOption = '2'): ToolExecut
       depth--;
     }
 
-    formatted += indentStr.repeat(depth) + node + '\n';
+    formattedLines.push(indentStr.repeat(depth) + node);
 
     if (isOpening && !isClosing && !isSelfClosing) {
       depth++;
     }
   }
 
-  const finalOutput = formatted.trimEnd();
+  const finalOutput = formattedLines.join('\n').trimEnd();
   const outputSize = new Blob([finalOutput]).size;
 
   return {

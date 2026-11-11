@@ -374,5 +374,19 @@ jobs:
       expect(res.output).toContain('name: item_1999');
       expect(duration).toBeLessThan(1500);
     });
+
+    it('detects and aborts on excessive alias expansions (YAML bomb guard)', () => {
+      // Build a 15-level exponential alias bomb
+      let bomb = 'a: &a [1, 1]\n';
+      const letters = 'bcdefghijklmnop';
+      let prev = 'a';
+      for (const ch of letters) {
+        bomb += `${ch}: &${ch} [*${prev}, *${prev}, *${prev}]\n`;
+        prev = ch;
+      }
+      const res = validateYaml(bomb);
+      expect(res.isValid).toBe(false);
+      expect(res.issues[0].message).toContain('Excessive YAML alias expansion detected');
+    });
   });
 });

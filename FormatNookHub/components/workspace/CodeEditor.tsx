@@ -4,11 +4,17 @@ import React, { useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { formatByteSize } from '@/lib/file-reader';
 
-// Lazy load Monaco Editor for optional rich mode
-const MonacoEditor = dynamic(() => import('@monaco-editor/react'), {
-  ssr: false,
-  loading: () => <div className="editor-loading">Loading editor engine...</div>,
-});
+// Lazy load Monaco Editor for optional rich mode with offline resilience
+const MonacoEditor = dynamic(
+  () =>
+    import('@monaco-editor/react').catch(() => {
+      return () => <div className="editor-loading">Monaco unavailable (offline mode).</div>;
+    }),
+  {
+    ssr: false,
+    loading: () => <div className="editor-loading">Loading editor engine...</div>,
+  }
+);
 
 // Accurate logical line count helper for any LF/CRLF/empty text
 export function countLogicalLines(text: string): number {
@@ -104,6 +110,7 @@ export function CodeEditor({
                 });
               });
             }}
+            loading={<div className="editor-loading">Loading editor engine...</div>}
             options={{
               readOnly,
               minimap: { enabled: false },
