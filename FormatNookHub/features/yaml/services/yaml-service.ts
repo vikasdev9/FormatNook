@@ -2,9 +2,13 @@ import yaml from 'js-yaml';
 import { IndentOption, ValidationIssue, ToolExecutionResult } from '@/types/tool';
 import { YamlDocumentInfo, YamlFormatOptions } from '../types/yaml.types';
 
-export const SAFE_YAML_LOAD_OPTIONS: yaml.LoadOptions = {
+export interface SafeYamlOptions extends yaml.LoadOptions {
+  maxDepth?: number;
+}
+
+export const SAFE_YAML_LOAD_OPTIONS: SafeYamlOptions = {
   schema: yaml.DEFAULT_SCHEMA,
-  ...( { maxDepth: 100 } as any ),
+  maxDepth: 100,
 };
 
 export function getYamlIndentNumber(indent: IndentOption | number | string): number {
