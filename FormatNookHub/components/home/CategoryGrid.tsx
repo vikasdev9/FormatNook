@@ -31,7 +31,7 @@ export function CategoryGrid() {
                 <div className="category-card-tool-count">
                   <span>{implementedCount} available</span>
                   {count > implementedCount && (
-                    <span style={{ color: 'var(--text-subtle)' }}>({count - implementedCount} planned)</span>
+                    <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>({count - implementedCount} planned)</span>
                   )}
                   <ArrowRight size={14} style={{ marginLeft: 'auto' }} />
                 </div>

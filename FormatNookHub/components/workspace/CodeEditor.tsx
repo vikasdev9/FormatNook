@@ -46,8 +46,28 @@ export function CodeEditor({
   footerLabel = 'Editor',
 }: CodeEditorProps) {
   const [cursor, setCursor] = useState({ line: 1, col: 1 });
+  const [currentTheme, setCurrentTheme] = useState<'light' | 'dark'>('light');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const gutterRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const updateTheme = () => {
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      setCurrentTheme(isDark ? 'dark' : 'light');
+    };
+    updateTheme();
+
+    const observer = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        if (m.type === 'attributes' && m.attributeName === 'data-theme') {
+          updateTheme();
+        }
+      }
+    });
+
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => observer.disconnect();
+  }, []);
 
   const totalLines = countLogicalLines(value);
   const totalChars = (value || '').length;
@@ -120,7 +140,7 @@ export function CodeEditor({
               wordWrap: wordWrap ? 'on' : 'off',
               automaticLayout: true,
             }}
-            theme="vs-dark"
+            theme={currentTheme === 'dark' ? 'vs-dark' : 'vs'}
           />
         </div>
         <div className="editor-status-bar" data-testid={`${footerLabel.toLowerCase()}-status-bar`}>

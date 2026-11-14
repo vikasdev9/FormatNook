@@ -110,12 +110,20 @@ export default function CategoryPage({ params }: CategoryPageProps) {
 
         {plannedTools.length > 0 && (
           <section style={{ marginBottom: '3rem' }}>
-            <h2 className="section-heading-sm" style={{ color: 'var(--text-muted)' }}>
+            <h2 className="section-heading-sm" style={{ color: 'var(--text-secondary)' }}>
               Upcoming in Roadmap ({plannedTools.length})
             </h2>
             <div className="tool-cards-grid">
               {plannedTools.map((tool) => (
-                <div key={tool.id} className="tool-card" style={{ opacity: 0.75, cursor: 'default' }}>
+                <div
+                  key={tool.id}
+                  className="tool-card tool-card-roadmap"
+                  style={{
+                    border: '1px solid var(--border-subtle)',
+                    borderStyle: 'solid',
+                    cursor: 'default',
+                  }}
+                >
                   <div className="tool-card-icon">
                     <IconRenderer name={tool.icon} size={22} />
                   </div>
@@ -123,10 +131,10 @@ export default function CategoryPage({ params }: CategoryPageProps) {
                   <div className="tool-card-desc">{tool.description}</div>
                   <div className="tool-card-footer">
                     <span className="badge badge-neutral">
-                      <Clock size={12} /> Planned
+                      {tool.category.toUpperCase()}
                     </span>
-                    <span style={{ color: 'var(--text-subtle)' }}>
-                      In Development
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                      <Clock size={13} /> In Roadmap
                     </span>
                   </div>
                 </div>

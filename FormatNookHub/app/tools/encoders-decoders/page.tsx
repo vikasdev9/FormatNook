@@ -92,16 +92,7 @@ export default function EncodersDecodersDirectoryPage() {
         </div>
 
         {/* Search & Privacy Filter Bar */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '1rem',
-            margin: '1.5rem 0 2rem',
-            flexWrap: 'wrap',
-          }}
-        >
+        <div className="encoder-filter-bar">
           <div style={{ position: 'relative', width: '100%', maxWidth: '380px' }}>
             <Search
               size={16}
@@ -109,7 +100,9 @@ export default function EncodersDecodersDirectoryPage() {
               style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)' }}
             />
             <input
+              id="encoder-search-input"
               type="text"
+              aria-label="Search encoders and decoders"
               placeholder="Search encoders & decoders (e.g. Hex, PDF, Audio, Video)..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -124,7 +117,7 @@ export default function EncodersDecodersDirectoryPage() {
             />
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8125rem', color: 'var(--color-success)' }}>
+          <div className="encoder-privacy-badge">
             <ShieldCheck size={18} />
             <span>Zero Server Transmission &bull; 100% Client-Side Processing</span>
           </div>

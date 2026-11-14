@@ -40,10 +40,10 @@ export function ToolDescription({ tool }: ToolDescriptionProps) {
           {edu.examples.map((ex, i) => (
             <div key={i} style={{ marginBottom: '1.5rem', background: 'var(--bg-secondary)', padding: '1.25rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
               <h4 style={{ fontSize: '0.9375rem', fontWeight: 600, marginBottom: '0.5rem', color: 'var(--text-primary)' }}>{ex.title}</h4>
-              {ex.description && <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>{ex.description}</p>}
+              {ex.description && <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>{ex.description}</p>}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
                 <div>
-                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-subtle)' }}>RAW INPUT</span>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>RAW INPUT</span>
                   <pre style={{ margin: '0.25rem 0 0', padding: '0.75rem', background: 'var(--bg-card)', borderRadius: 'var(--radius-sm)', fontSize: '0.8125rem', fontFamily: 'var(--font-mono)', overflowX: 'auto', border: '1px solid var(--border-subtle)' }}>{ex.input}</pre>
                 </div>
                 <div>

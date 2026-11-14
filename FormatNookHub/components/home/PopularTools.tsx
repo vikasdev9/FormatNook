@@ -42,11 +42,11 @@ export function PopularTools() {
               <div className="tool-card-title">{tool.name}</div>
               <div className="tool-card-desc">{tool.description}</div>
               <div className="tool-card-footer">
-                <span className="badge badge-accent" style={{ fontSize: '0.6875rem' }}>
+                <span className="badge badge-accent">
                   {tool.category.toUpperCase()}
                 </span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'var(--accent-primary)', fontWeight: 500 }}>
-                  Launch <ArrowRight size={12} />
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--accent-primary)', fontWeight: 600 }}>
+                  Launch <ArrowRight size={13} />
                 </span>
               </div>
             </Link>

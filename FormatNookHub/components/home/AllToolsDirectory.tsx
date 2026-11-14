@@ -80,16 +80,16 @@ export function AllToolsDirectory() {
                 <div className="tool-card-title">{tool.name}</div>
                 <div className="tool-card-desc">{tool.description}</div>
                 <div className="tool-card-footer">
-                  <span className="badge badge-neutral" style={{ fontSize: '0.6875rem' }}>
+                  <span className="badge badge-neutral">
                     {tool.category.toUpperCase()}
                   </span>
                   {isImplemented ? (
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'var(--color-success)', fontWeight: 500 }}>
-                      <CheckCircle2 size={12} /> Available
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--color-success)', fontWeight: 600 }}>
+                      <CheckCircle2 size={13} /> Available
                     </span>
                   ) : (
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'var(--text-subtle)' }}>
-                      <Clock size={12} /> In Roadmap
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                      <Clock size={13} /> In Roadmap
                     </span>
                   )}
                 </div>
@@ -105,7 +105,15 @@ export function AllToolsDirectory() {
             }
 
             return (
-              <div key={tool.id} className="tool-card" style={{ opacity: 0.75, cursor: 'default' }}>
+              <div
+                key={tool.id}
+                className="tool-card tool-card-roadmap"
+                style={{
+                  border: '1px solid var(--border-subtle)',
+                  borderStyle: 'solid',
+                  cursor: 'default',
+                }}
+              >
                 {CardContent}
               </div>
             );
@@ -113,7 +121,7 @@ export function AllToolsDirectory() {
         </div>
 
         {filteredTools.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-muted)' }}>
+          <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-secondary)' }}>
             No utilities match your search. Try resetting your category filter or search query.
           </div>
         )}
