@@ -630,14 +630,35 @@ export function JsonWorkspace({ initialMode = 'format' }: JsonWorkspaceProps) {
     []
   );
 
-  // Reset workspace
+  const previousStateRef = useRef<{ input: string; output: string } | null>(null);
+  const [showUndoReset, setShowUndoReset] = useState<boolean>(false);
+  const undoResetTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Reset workspace with soft-undo capability
   const handleReset = useCallback(() => {
+    if (input.trim()) {
+      previousStateRef.current = { input, output };
+      setShowUndoReset(true);
+      if (undoResetTimerRef.current) clearTimeout(undoResetTimerRef.current);
+      undoResetTimerRef.current = setTimeout(() => setShowUndoReset(false), 8000);
+    }
     setInput('');
     setOutput('');
     setValidationState({ isValid: null, issues: [] });
     setIsOutdated(false);
-    setStatusMessage('Ready');
+    setStatusMessage('Workspace cleared');
     setStatusType('ready');
+  }, [input, output]);
+
+  const handleUndoReset = useCallback(() => {
+    if (previousStateRef.current) {
+      setInput(previousStateRef.current.input);
+      setOutput(previousStateRef.current.output);
+      previousStateRef.current = null;
+      setShowUndoReset(false);
+      setStatusMessage('Restored previous workspace');
+      setStatusType('success');
+    }
   }, []);
 
   // File loaded via dropzone or picker
@@ -1050,7 +1071,7 @@ export function JsonWorkspace({ initialMode = 'format' }: JsonWorkspaceProps) {
 
             {/* Output Panel */}
             <div
-              className={`editor-panel ${mobileTab === 'input' ? 'mobile-panel-hidden' : ''}`}
+              className={`editor-panel ${mobileTab === 'input' ? 'mobile-panel-hidden' : ''} ${isOutdated && !autoFormat ? 'opacity-85' : ''}`}
               data-testid="json-output-panel"
             >
               <div className="panel-header">
@@ -1063,6 +1084,17 @@ export function JsonWorkspace({ initialMode = 'format' }: JsonWorkspaceProps) {
                     <span className="badge badge-warning" data-testid="output-outdated-badge">
                       Outdated
                     </span>
+                  )}
+                  {isOutdated && !autoFormat && (
+                    <button
+                      type="button"
+                      onClick={() => handleFormat(input)}
+                      data-testid="refresh-stale-output-btn"
+                      className="btn btn-warning btn-xs ml-1"
+                      title="Input was modified with Auto-Format disabled. Click to recompute output."
+                    >
+                      Update
+                    </button>
                   )}
                 </div>
                 <div className="panel-actions">
@@ -1207,6 +1239,32 @@ export function JsonWorkspace({ initialMode = 'format' }: JsonWorkspaceProps) {
         activePalette={effectivePalette.palette}
         onPreferencesChange={(newPrefs) => setPalettePreferences(newPrefs)}
       />
+
+      {showUndoReset && (
+        <div
+          role="status"
+          data-testid="undo-reset-banner"
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-2.5 bg-neutral-900 border border-neutral-700 text-white shadow-xl rounded-lg text-sm"
+        >
+          <span>Workspace cleared</span>
+          <button
+            type="button"
+            onClick={handleUndoReset}
+            data-testid="undo-reset-btn"
+            className="btn btn-primary btn-xs"
+          >
+            Undo
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowUndoReset(false)}
+            className="text-neutral-400 hover:text-white text-xs ml-1"
+            aria-label="Dismiss notification"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
     </div>
   );
 }

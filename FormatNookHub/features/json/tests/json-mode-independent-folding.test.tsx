@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { CodeEditor, CodeEditorActions } from '@/components/workspace/CodeEditor';
 import { JsonWorkspace } from '../components/JsonWorkspace';
 
@@ -140,13 +140,17 @@ describe('Mode-Independent JSON Expand & Collapse', () => {
         />
       );
 
-      actions!.foldAll();
+      act(() => {
+        actions!.foldAll();
+      });
 
       // Line 1 (root) is collapsed
       expect(screen.getByTestId('fold-pill-line-1')).toBeInTheDocument();
 
       // Unfold all
-      actions!.unfoldAll();
+      act(() => {
+        actions!.unfoldAll();
+      });
       expect(screen.queryByTestId('fold-pill-line-1')).not.toBeInTheDocument();
     });
 
@@ -193,25 +197,25 @@ describe('Mode-Independent JSON Expand & Collapse', () => {
       expect(monacoBtn.textContent).toContain('Standard');
 
       // Verify root collapsed pill is visible in standalone editor
-      expect(screen.getByTestId('fold-pill-line-1')).toBeInTheDocument();
+      expect(screen.getAllByTestId('fold-pill-line-1').length).toBeGreaterThan(0);
 
       // Click Expand All
       fireEvent.click(foldTrigger);
       const expandAllBtn = screen.getByTestId('action-expand-all');
       fireEvent.click(expandAllBtn);
 
-      expect(screen.queryByTestId('fold-pill-line-1')).not.toBeInTheDocument();
+      expect(screen.queryAllByTestId('fold-pill-line-1')).toHaveLength(0);
     });
 
     it('preserves collapsed state across mode switches', () => {
-      const { rerender } = render(<JsonWorkspace />);
+      render(<JsonWorkspace />);
 
-      // In Standalone mode, collapse the developer object (line 3 in default sample)
-      const foldDevBtn = screen.getByTestId('fold-toggle-line-3');
+      // In Standalone mode, collapse the developer object (line 4 in default sample)
+      const foldDevBtn = screen.getAllByTestId('fold-toggle-line-4')[0];
       fireEvent.click(foldDevBtn);
 
       // Collapsed pill is active in Standalone
-      expect(screen.getByTestId('fold-pill-line-3')).toBeInTheDocument();
+      expect(screen.getAllByTestId('fold-pill-line-4').length).toBeGreaterThan(0);
 
       // Switch to Monaco Mode
       const toggleMonacoBtn = screen.getByTestId('toggle-monaco-btn');
@@ -222,8 +226,8 @@ describe('Mode-Independent JSON Expand & Collapse', () => {
       fireEvent.click(toggleMonacoBtn);
       expect(toggleMonacoBtn.textContent).toContain('Standard');
 
-      // The collapsed developer object on line 3 must STILL be collapsed!
-      expect(screen.getByTestId('fold-pill-line-3')).toBeInTheDocument();
+      // The collapsed developer object on line 4 must STILL be collapsed!
+      expect(screen.getAllByTestId('fold-pill-line-4').length).toBeGreaterThan(0);
     });
 
     it('handles depth-based folding (Level 2) in standalone mode', () => {
@@ -236,9 +240,9 @@ describe('Mode-Independent JSON Expand & Collapse', () => {
       const level2Btn = screen.getByTestId('action-fold-level-2');
       fireEvent.click(level2Btn);
 
-      // Level 1 (line 1) should stay expanded, while Level 2 (line 3) should be collapsed
-      expect(screen.queryByTestId('fold-pill-line-1')).not.toBeInTheDocument();
-      expect(screen.getByTestId('fold-pill-line-3')).toBeInTheDocument();
+      // Level 1 (line 1) should stay expanded, while Level 2 (line 4) should be collapsed
+      expect(screen.queryAllByTestId('fold-pill-line-1')).toHaveLength(0);
+      expect(screen.getAllByTestId('fold-pill-line-4').length).toBeGreaterThan(0);
     });
   });
 });

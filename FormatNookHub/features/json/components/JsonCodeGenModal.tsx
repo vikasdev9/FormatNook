@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { X, Code2, Copy, Check, Download, Settings2, FileCode2 } from 'lucide-react';
 import { CodeGenLanguage, CodeGenOptions } from '../types/json.types';
 import { generateCodeFromData } from '../services/json-codegen-service';
@@ -35,6 +35,15 @@ export function JsonCodeGenModal({ isOpen, onClose, jsonContent }: JsonCodeGenMo
   const [useInterfaces, setUseInterfaces] = useState<boolean>(true);
 
   const { copy, copied } = useClipboard();
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   const parsedData = useMemo(() => {
     try {
@@ -76,8 +85,8 @@ export function JsonCodeGenModal({ isOpen, onClose, jsonContent }: JsonCodeGenMo
   };
 
   return (
-    <div className="json-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="codegen-title">
-      <div className="json-modal-card json-transform-modal-card" style={{ maxWidth: '960px' }}>
+    <div className="json-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="codegen-title" onClick={onClose}>
+      <div className="json-modal-card json-transform-modal-card" style={{ maxWidth: '960px' }} onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="json-modal-header">
           <div className="json-modal-title-group">
