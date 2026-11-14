@@ -16,15 +16,24 @@ import {
   Edit3,
 } from 'lucide-react';
 import { JsonDataType } from '../types/json.types';
+import { JsonColorPalette } from '../types/palette.types';
 import { useClipboard } from '@/hooks/useClipboard';
+
+export interface JsonTreeActions {
+  expandAll: () => void;
+  collapseAll: () => void;
+  expandToDepth: (depth: number) => void;
+}
 
 interface JsonTreeViewProps {
   data: any;
   onSelectPath?: (path: string) => void;
   onEditValue?: (path: string, newValue: any) => void;
+  palette?: JsonColorPalette;
+  onTreeReady?: (actions: JsonTreeActions) => void;
 }
 
-export function JsonTreeView({ data, onSelectPath, onEditValue }: JsonTreeViewProps) {
+export function JsonTreeView({ data, onSelectPath, onEditValue, palette, onTreeReady }: JsonTreeViewProps) {
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(() => new Set(['$']));
   const [searchQuery, setSearchQuery] = useState('');
   const [isCaseSensitive, setIsCaseSensitive] = useState(false);
@@ -124,6 +133,12 @@ export function JsonTreeView({ data, onSelectPath, onEditValue }: JsonTreeViewPr
     },
     [data]
   );
+
+  React.useEffect(() => {
+    if (onTreeReady) {
+      onTreeReady({ expandAll, collapseAll, expandToDepth });
+    }
+  }, [expandAll, collapseAll, expandToDepth, onTreeReady]);
 
   // Collect all matching node paths for search navigation
   const matchedPaths: string[] = useMemo(() => {
@@ -294,15 +309,31 @@ export function JsonTreeView({ data, onSelectPath, onEditValue }: JsonTreeViewPr
 
           {/* Node Key */}
           {keyName && (
-            <span className="tree-node-key" data-testid={`tree-key-${keyName}`}>
+            <span
+              className="tree-node-key"
+              data-testid={`tree-key-${keyName}`}
+              style={palette?.property ? { color: palette.property } : undefined}
+            >
               {keyName}
-              <span className="tree-colon">:</span>
+              <span
+                className="tree-colon"
+                style={palette?.punctuation ? { color: palette.punctuation } : undefined}
+              >
+                :
+              </span>
             </span>
           )}
 
           {/* Node Value / Structure Metadata */}
           {isObject ? (
-            <span className="tree-node-meta">
+            <span
+              className="tree-node-meta"
+              style={
+                isArray
+                  ? palette?.array ? { color: palette.array } : undefined
+                  : palette?.object ? { color: palette.object } : undefined
+              }
+            >
               {isArray ? `Array[${childCount}]` : `{${childCount} ${childCount === 1 ? 'prop' : 'props'}}`}
             </span>
           ) : editingPath === path ? (
@@ -331,6 +362,17 @@ export function JsonTreeView({ data, onSelectPath, onEditValue }: JsonTreeViewPr
             <span
               className={`tree-node-value tree-type-${type}`}
               data-testid={`tree-value-${path}`}
+              style={
+                type === 'string' && palette?.string
+                  ? { color: palette.string }
+                  : type === 'number' && palette?.number
+                  ? { color: palette.number }
+                  : type === 'boolean' && palette?.boolean
+                  ? { color: palette.boolean }
+                  : type === 'null' && palette?.null
+                  ? { color: palette.null }
+                  : undefined
+              }
               onDoubleClick={(e) => {
                 e.stopPropagation();
                 if (onEditValue) handleStartEdit(path, value);

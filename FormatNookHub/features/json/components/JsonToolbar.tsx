@@ -22,12 +22,14 @@ import {
   FileCode2,
   ArrowDownAZ,
   Quote,
+  Palette,
 } from 'lucide-react';
 import { IndentOption } from '@/types/tool';
 import { JsonViewMode } from '../types/json.types';
 import { JSON_SAMPLES } from '../services/json-samples';
 import { FileDropzone } from '@/components/workspace/FileDropzone';
 import { ResetButton } from '@/components/workspace/ResetButton';
+import { JsonFoldingMenu } from './JsonFoldingMenu';
 
 interface JsonToolbarProps {
   viewMode: JsonViewMode;
@@ -71,6 +73,12 @@ interface JsonToolbarProps {
   onToggleAutoFormat?: () => void;
   statusMessage?: string;
   statusType?: 'ready' | 'formatting' | 'success' | 'error' | 'outdated';
+  onExpandAll?: () => void;
+  onCollapseAll?: () => void;
+  onFoldLevel?: (level: number) => void;
+  activeFoldLevel?: number | null;
+  onOpenColorPalette?: () => void;
+  activePaletteThemeName?: string;
 }
 
 export function JsonToolbar({
@@ -115,6 +123,12 @@ export function JsonToolbar({
   onToggleAutoFormat,
   statusMessage,
   statusType = 'ready',
+  onExpandAll,
+  onCollapseAll,
+  onFoldLevel,
+  activeFoldLevel,
+  onOpenColorPalette,
+  activePaletteThemeName,
 }: JsonToolbarProps) {
   return (
     <div className="json-workspace-toolbar-wrapper">
@@ -386,6 +400,29 @@ export function JsonToolbar({
           >
             Editor: {useMonaco ? 'Monaco' : 'Standard'}
           </button>
+
+          {/* Folding Controls Dropdown */}
+          {onExpandAll && onCollapseAll && (
+            <JsonFoldingMenu
+              onExpandAll={onExpandAll}
+              onCollapseAll={onCollapseAll}
+              onFoldLevel={onFoldLevel}
+              activeFoldLevel={activeFoldLevel}
+            />
+          )}
+
+          {/* Color Palette Modal Trigger */}
+          {onOpenColorPalette && (
+            <button
+              className="btn-subtle-toggle"
+              onClick={onOpenColorPalette}
+              title={`Customize JSON Syntax Color Palette (Active: ${activePaletteThemeName || 'FormatNook'})`}
+              data-testid="json-color-palette-btn"
+            >
+              <Palette size={13} style={{ display: 'inline', marginRight: '4px' }} />
+              Palette: {activePaletteThemeName || 'Theme'}
+            </button>
+          )}
 
           {/* Core Tools Quick Buttons */}
           {onSortKeys && (

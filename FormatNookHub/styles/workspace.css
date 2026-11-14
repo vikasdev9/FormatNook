@@ -272,6 +272,100 @@
   box-sizing: border-box;
 }
 
+/* Standalone Editor Gutter & Structured Folding */
+.editor-line-gutter-with-folds {
+  width: 58px;
+  padding: 0.75rem 0.25rem;
+}
+
+.gutter-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  height: 1.5rem;
+  line-height: 1.5rem;
+  position: relative;
+  gap: 3px;
+}
+
+.gutter-line-number {
+  color: var(--text-subtle);
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  min-width: 26px;
+  text-align: right;
+  user-select: none;
+}
+
+.standalone-fold-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  opacity: 0.75;
+}
+
+.standalone-fold-btn:hover {
+  opacity: 1;
+  color: var(--accent-primary);
+  background-color: var(--accent-soft);
+}
+
+.standalone-fold-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 1px 6px;
+  margin: 0 4px;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  cursor: pointer;
+  vertical-align: middle;
+  transition: all var(--transition-fast);
+}
+
+.standalone-fold-pill:hover {
+  background-color: var(--bg-tertiary);
+  border-color: var(--accent-primary);
+}
+
+.standalone-structured-view {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  padding: 0.75rem 1rem;
+  overflow: auto;
+  font-family: var(--font-mono);
+  line-height: 1.5rem;
+  background-color: var(--bg-card);
+  color: var(--text-primary);
+  box-sizing: border-box;
+}
+
+.standalone-line-row {
+  display: flex;
+  min-height: 1.5rem;
+  line-height: 1.5rem;
+  white-space: pre;
+}
+
+.standalone-line-content {
+  flex: 1;
+  outline: none;
+}
+
 @media (max-width: 640px) {
   .editor-textarea {
     font-size: 16px !important; /* Critical: prevents iOS Safari unwanted viewport zoom */

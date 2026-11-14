@@ -37,14 +37,14 @@ import {
   addRecentFile,
 } from '../services/json-storage-service';
 import { JsonViewMode } from '../types/json.types';
-import { CodeEditor, countLogicalLines } from '@/components/workspace/CodeEditor';
+import { CodeEditor, CodeEditorActions, countLogicalLines } from '@/components/workspace/CodeEditor';
 import { CopyButton } from '@/components/workspace/CopyButton';
 import { DownloadButton } from '@/components/workspace/DownloadButton';
 import { ValidationResult } from '@/components/workspace/ValidationResult';
 import { formatByteSize } from '@/lib/file-reader';
 
 import { JsonToolbar } from './JsonToolbar';
-import { JsonTreeView } from './JsonTreeView';
+import { JsonTreeView, JsonTreeActions } from './JsonTreeView';
 import { JsonTableView } from './JsonTableView';
 import { JsonPathPanel } from './JsonPathPanel';
 import { JsonStatsModal } from './JsonStatsModal';
@@ -55,6 +55,13 @@ import { JsonSchemaModal } from './JsonSchemaModal';
 import { JsonRecentModal } from './JsonRecentModal';
 import { JsonCodeGenModal } from './JsonCodeGenModal';
 import { JsonDiffModal } from './JsonDiffModal';
+import { JsonColorPaletteModal } from './JsonColorPaletteModal';
+import {
+  loadStoredPreferences,
+  getEffectivePalette,
+  BUILT_IN_THEMES,
+} from '../services/json-palette-service';
+import { StoredPalettePreferences, JsonColorPalette } from '../types/palette.types';
 
 interface JsonWorkspaceProps {
   initialMode?: 'format' | 'validate' | 'minify';
@@ -113,6 +120,84 @@ export function JsonWorkspace({ initialMode = 'format' }: JsonWorkspaceProps) {
   const [isCodeGenOpen, setIsCodeGenOpen] = useState<boolean>(false);
   const [isDiffOpen, setIsDiffOpen] = useState<boolean>(false);
   const [isJson5Mode, setIsJson5Mode] = useState<boolean>(false);
+  const [isColorPaletteOpen, setIsColorPaletteOpen] = useState<boolean>(false);
+  const [activeFoldLevel, setActiveFoldLevel] = useState<number | null>(null);
+
+  // Color Palette & Dynamic Theme State
+  const [palettePreferences, setPalettePreferences] = useState<StoredPalettePreferences>(() =>
+    loadStoredPreferences()
+  );
+  const [appTheme, setAppTheme] = useState<'light' | 'dark'>(() => {
+    if (typeof document !== 'undefined') {
+      return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+    }
+    return 'dark';
+  });
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const updateTheme = () => {
+      const current = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+      setAppTheme(current);
+    };
+    updateTheme();
+    const observer = new MutationObserver(updateTheme);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => observer.disconnect();
+  }, []);
+
+  const effectivePalette = useMemo(() => {
+    return getEffectivePalette(appTheme, palettePreferences);
+  }, [palettePreferences, appTheme]);
+
+  const activePaletteThemeName = useMemo(() => {
+    const id = palettePreferences.activeThemeId[appTheme];
+    if (id === 'custom') return 'Custom';
+    const found = BUILT_IN_THEMES.find((t) => t.id === id);
+    return found ? found.name : 'FormatNook';
+  }, [palettePreferences, appTheme]);
+
+  // Editor & Tree Action References for Unified Folding
+  const inputEditorActionsRef = useRef<CodeEditorActions | null>(null);
+  const outputEditorActionsRef = useRef<CodeEditorActions | null>(null);
+  const treeActionsRef = useRef<JsonTreeActions | null>(null);
+
+  // Persistent shared folding states for Input and Output editors
+  const [inputCollapsedLines, setInputCollapsedLines] = useState<Set<number>>(() => new Set());
+  const [outputCollapsedLines, setOutputCollapsedLines] = useState<Set<number>>(() => new Set());
+
+  const handleExpandAll = useCallback(() => {
+    setActiveFoldLevel(null);
+    if (viewMode === 'code') {
+      inputEditorActionsRef.current?.unfoldAll();
+      outputEditorActionsRef.current?.unfoldAll();
+    } else if (viewMode === 'tree') {
+      treeActionsRef.current?.expandAll();
+    }
+  }, [viewMode]);
+
+  const handleCollapseAll = useCallback(() => {
+    setActiveFoldLevel(null);
+    if (viewMode === 'code') {
+      inputEditorActionsRef.current?.foldAll();
+      outputEditorActionsRef.current?.foldAll();
+    } else if (viewMode === 'tree') {
+      treeActionsRef.current?.collapseAll();
+    }
+  }, [viewMode]);
+
+  const handleFoldLevel = useCallback(
+    (level: number) => {
+      setActiveFoldLevel(level);
+      if (viewMode === 'code') {
+        inputEditorActionsRef.current?.foldLevel(level);
+        outputEditorActionsRef.current?.foldLevel(level);
+      } else if (viewMode === 'tree') {
+        treeActionsRef.current?.expandToDepth(level);
+      }
+    },
+    [viewMode]
+  );
 
   // Worker & Progress State
   const [isWorkerRunning, setIsWorkerRunning] = useState<boolean>(false);
@@ -789,6 +874,12 @@ export function JsonWorkspace({ initialMode = 'format' }: JsonWorkspaceProps) {
         onOneLine={handleOneLine}
         onStringify={handleStringify}
         onUnstringify={handleUnstringify}
+        onExpandAll={handleExpandAll}
+        onCollapseAll={handleCollapseAll}
+        onFoldLevel={handleFoldLevel}
+        activeFoldLevel={activeFoldLevel}
+        onOpenColorPalette={() => setIsColorPaletteOpen(true)}
+        activePaletteThemeName={activePaletteThemeName}
       />
 
       {/* JSON5 Active Mode Notification Banner */}
@@ -927,6 +1018,13 @@ export function JsonWorkspace({ initialMode = 'format' }: JsonWorkspaceProps) {
                   fontSize={fontSize}
                   wordWrap={wordWrap}
                   footerLabel="Input"
+                  palette={effectivePalette.palette}
+                  paletteThemeId={effectivePalette.themeId}
+                  collapsedLines={inputCollapsedLines}
+                  onCollapsedLinesChange={setInputCollapsedLines}
+                  onEditorReady={(actions) => {
+                    inputEditorActionsRef.current = actions;
+                  }}
                 />
               </div>
             </div>
@@ -986,6 +1084,13 @@ export function JsonWorkspace({ initialMode = 'format' }: JsonWorkspaceProps) {
                   fontSize={fontSize}
                   wordWrap={wordWrap}
                   footerLabel="Output"
+                  palette={effectivePalette.palette}
+                  paletteThemeId={effectivePalette.themeId}
+                  collapsedLines={outputCollapsedLines}
+                  onCollapsedLinesChange={setOutputCollapsedLines}
+                  onEditorReady={(actions) => {
+                    outputEditorActionsRef.current = actions;
+                  }}
                 />
               </div>
             </div>
@@ -997,7 +1102,14 @@ export function JsonWorkspace({ initialMode = 'format' }: JsonWorkspaceProps) {
       {viewMode === 'tree' && (
         <div className="json-structured-view-container" data-testid="json-tree-container">
           {parsedData !== null ? (
-            <JsonTreeView data={parsedData} onEditValue={handleTreeEditValue} />
+            <JsonTreeView
+              data={parsedData}
+              onEditValue={handleTreeEditValue}
+              palette={effectivePalette.palette}
+              onTreeReady={(actions) => {
+                treeActionsRef.current = actions;
+              }}
+            />
           ) : (
             <div className="json-empty-structured-state">
               <AlertTriangle size={28} className="text-warning" />
@@ -1085,6 +1197,15 @@ export function JsonWorkspace({ initialMode = 'format' }: JsonWorkspaceProps) {
         onClose={() => setIsDiffOpen(false)}
         originalJson={input}
         modifiedJson={output}
+      />
+
+      <JsonColorPaletteModal
+        isOpen={isColorPaletteOpen}
+        onClose={() => setIsColorPaletteOpen(false)}
+        currentTheme={appTheme}
+        preferences={palettePreferences}
+        activePalette={effectivePalette.palette}
+        onPreferencesChange={(newPrefs) => setPalettePreferences(newPrefs)}
       />
     </div>
   );
