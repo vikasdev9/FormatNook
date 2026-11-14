@@ -1,0 +1,101 @@
+{
+  "level": 1,
+  "nodeName": "layer_1",
+  "child": {
+    "level": 2,
+    "nodeName": "layer_2",
+    "child": {
+      "level": 3,
+      "nodeName": "layer_3",
+      "child": {
+        "level": 4,
+        "nodeName": "layer_4",
+        "child": {
+          "level": 5,
+          "nodeName": "layer_5",
+          "child": {
+            "level": 6,
+            "nodeName": "layer_6",
+            "child": {
+              "level": 7,
+              "nodeName": "layer_7",
+              "child": {
+                "level": 8,
+                "nodeName": "layer_8",
+                "child": {
+                  "level": 9,
+                  "nodeName": "layer_9",
+                  "child": {
+                    "level": 10,
+                    "nodeName": "layer_10",
+                    "child": {
+                      "level": 11,
+                      "nodeName": "layer_11",
+                      "child": {
+                        "level": 12,
+                        "nodeName": "layer_12",
+                        "child": {
+                          "level": 13,
+                          "nodeName": "layer_13",
+                          "child": {
+                            "level": 14,
+                            "nodeName": "layer_14",
+                            "child": {
+                              "level": 15,
+                              "nodeName": "layer_15",
+                              "child": {
+                                "level": 16,
+                                "nodeName": "layer_16",
+                                "child": {
+                                  "level": 17,
+                                  "nodeName": "layer_17",
+                                  "child": {
+                                    "level": 18,
+                                    "nodeName": "layer_18",
+                                    "child": {
+                                      "level": 19,
+                                      "nodeName": "layer_19",
+                                      "child": {
+                                        "level": 20,
+                                        "nodeName": "layer_20",
+                                        "child": {
+                                          "level": 21,
+                                          "nodeName": "layer_21",
+                                          "child": {
+                                            "level": 22,
+                                            "nodeName": "layer_22",
+                                            "child": {
+                                              "level": 23,
+                                              "nodeName": "layer_23",
+                                              "child": {
+                                                "level": 24,
+                                                "nodeName": "layer_24",
+                                                "child": {
+                                                  "level": 25,
+                                                  "value": "Leaf Node at depth 25",
+                                                  "completed": true
+                                                }
+                                              }
+                                            }
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "Synthetic Broken Record",
+  "single_quoted_key": "single quoted value",
+  "trailing_comma": true,
+  "items": [
+    "first item",
+    "second item"
+  ],
+  "numeric_hex": 26,
+  "nested": {
+    "unquoted_sub_key": "value"
+  }
+}

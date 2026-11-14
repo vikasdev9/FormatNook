@@ -1,0 +1,9 @@
+{
+  "escaped_quotes": "He said, \"FormatNook processes data 100% locally in browser.\"",
+  "escaped_backslash": "C:\\Users\\Developer\\AppData\\Local\\FormatNook",
+  "control_characters": "Line 1\nLine 2\r\nLine 3\tTabbed\bBackspace\fFormFeed",
+  "html_payload": "<script>alert(\"XSS & Injection Protection Test\");</script><div class='test'>Safe</div>",
+  "regex_pattern": "^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$",
+  "url_with_query": "https://formatnook.local/tools/json-minifier?indent=2&mode=strict#section-faq",
+  "zero_width_and_spaces": "Normal Word\u200BZeroWidthSpace\u00A0NonBreakingSpace\u3000IdeographicSpace"
+}

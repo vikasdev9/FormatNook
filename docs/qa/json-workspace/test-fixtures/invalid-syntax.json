@@ -1,0 +1,14 @@
+{
+  // Broken JSON fixture for Auto-Repair and Error Diagnostics Testing
+  name: 'Synthetic Broken Record',
+  'single_quoted_key': 'single quoted value',
+  trailing_comma: true,
+  items: [
+    'first item',
+    'second item',
+  ],
+  numeric_hex: 0x1A,
+  nested: {
+    unquoted_sub_key: "value",
+  },
+}

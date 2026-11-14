@@ -1,0 +1,6 @@
+id,sku,name,category,price,inStock,rating,tags
+1,PROD-KEY-001,Mechanical Gaming Keyboard,Peripherals,129.99,true,4.8,"[""hardware"",""gaming"",""usb-c""]"
+2,PROD-MOU-002,Ergonomic Wireless Mouse,Peripherals,79.5,true,4.6,"[""hardware"",""wireless"",""ergonomic""]"
+3,PROD-MON-003,4K Ultra-Wide Monitor 34-inch,Displays,649,false,4.9,"[""hardware"",""monitor"",""4k""]"
+4,PROD-HDP-004,Noise Cancelling Studio Headphones,Audio,249.95,true,4.7,"[""audio"",""bluetooth"",""studio""]"
+5,PROD-MIC-005,USB Cardioid Condenser Microphone,Audio,99,true,4.5,"[""audio"",""streaming"",""usb""]"

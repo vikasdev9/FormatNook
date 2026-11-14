@@ -1,0 +1,36 @@
+{
+  "user": {
+    "id": "usr_9901",
+    "username": "alex_developer",
+    "email": "alex@synthetic-tests.local",
+    "profile": {
+      "firstName": "Alex",
+      "lastName": "Mercer",
+      "age": 31,
+      "address": {
+        "street": "100 Innovation Way",
+        "city": "Seattle",
+        "state": "WA",
+        "zipCode": "98101",
+        "geo": {
+          "lat": 47.6062,
+          "lng": -122.3321
+        }
+      }
+    },
+    "roles": ["developer", "admin", "qa-lead"],
+    "preferences": {
+      "theme": "dark",
+      "autoFormat": true,
+      "notifications": {
+        "email": true,
+        "slack": false,
+        "sms": null
+      }
+    }
+  },
+  "metadata": {
+    "version": "1.0",
+    "generatedAt": "2026-11-15T00:00:00Z"
+  }
+}

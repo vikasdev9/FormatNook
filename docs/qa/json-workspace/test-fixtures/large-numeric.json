@@ -1,0 +1,11 @@
+{
+  "max_safe_integer": 9007199254740991,
+  "min_safe_integer": -9007199254740991,
+  "zero": 0,
+  "negative_integer": -42,
+  "positive_float": 3.141592653589793,
+  "negative_float": -0.0000012345,
+  "scientific_notation_positive": 1.25e+12,
+  "scientific_notation_negative": 4.56e-8,
+  "large_id_string_safe": "18446744073709551615"
+}

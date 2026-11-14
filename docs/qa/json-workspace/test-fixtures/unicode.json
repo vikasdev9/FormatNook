@@ -1,0 +1,15 @@
+{
+  "english": "The quick brown fox jumps over the lazy dog.",
+  "german": "Falsches Üben von Xylophonmusik quält jeden größeren Zwerg.",
+  "french": "Portez ce vieux whisky au juge blond qui fume.",
+  "spanish": "El veloz murciélago hindú comía feliz cardillo y kiwi.",
+  "japanese": "日本語のテストデータ：こんにちは世界！",
+  "chinese_simplified": "简体中文测试：格式化工具与验证器。",
+  "chinese_traditional": "繁體中文測試：線上格式化工具。",
+  "hindi": "नमस्ते दुनिया! यह एक सिंथेटिक परीक्षण डेटा है।",
+  "arabic": "مرحبا بالعالم! هذا اختبار للتحقق من دعم اليونيكود.",
+  "russian": "Съешь же ещё этих мягких французских булок, да выпей чаю.",
+  "greek": "Ξεσκεπάζω την ψυχοφθόρα βδελυγμία.",
+  "currency_symbols": ["$", "€", "£", "¥", "₹", "₽", "₩", "₿"],
+  "emojis": ["🚀", "⚡", "🔒", "🎨", "🛠️", "✨", "📊", "💻", "🔥", "🎉"]
+}

@@ -1,0 +1,10 @@
+{
+  "entityId": 1001,
+  "status": "pending",
+  "status": "approved",
+  "config": {
+    "timeout": 30,
+    "timeout": 60
+  },
+  "note": "Standard JSON.parse keeps the last duplicate key in object"
+}

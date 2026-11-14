@@ -1,0 +1,10 @@
+{
+  "empty_object": {},
+  "empty_array": [],
+  "empty_string": "",
+  "nested_empty": {
+    "sub_empty_object": {},
+    "sub_empty_array": []
+  },
+  "array_of_empties": [{}, [], {}, ""]
+}

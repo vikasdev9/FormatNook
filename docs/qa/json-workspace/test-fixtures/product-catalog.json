@@ -1,0 +1,52 @@
+[
+  {
+    "id": 1,
+    "sku": "PROD-KEY-001",
+    "name": "Mechanical Gaming Keyboard",
+    "category": "Peripherals",
+    "price": 129.99,
+    "inStock": true,
+    "rating": 4.8,
+    "tags": ["hardware", "gaming", "usb-c"]
+  },
+  {
+    "id": 2,
+    "sku": "PROD-MOU-002",
+    "name": "Ergonomic Wireless Mouse",
+    "category": "Peripherals",
+    "price": 79.5,
+    "inStock": true,
+    "rating": 4.6,
+    "tags": ["hardware", "wireless", "ergonomic"]
+  },
+  {
+    "id": 3,
+    "sku": "PROD-MON-003",
+    "name": "4K Ultra-Wide Monitor 34-inch",
+    "category": "Displays",
+    "price": 649.0,
+    "inStock": false,
+    "rating": 4.9,
+    "tags": ["hardware", "monitor", "4k"]
+  },
+  {
+    "id": 4,
+    "sku": "PROD-HDP-004",
+    "name": "Noise Cancelling Studio Headphones",
+    "category": "Audio",
+    "price": 249.95,
+    "inStock": true,
+    "rating": 4.7,
+    "tags": ["audio", "bluetooth", "studio"]
+  },
+  {
+    "id": 5,
+    "sku": "PROD-MIC-005",
+    "name": "USB Cardioid Condenser Microphone",
+    "category": "Audio",
+    "price": 99.0,
+    "inStock": true,
+    "rating": 4.5,
+    "tags": ["audio", "streaming", "usb"]
+  }
+]
