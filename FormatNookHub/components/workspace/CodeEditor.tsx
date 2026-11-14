@@ -46,7 +46,12 @@ export function CodeEditor({
   footerLabel = 'Editor',
 }: CodeEditorProps) {
   const [cursor, setCursor] = useState({ line: 1, col: 1 });
-  const [currentTheme, setCurrentTheme] = useState<'light' | 'dark'>('light');
+  const [currentTheme, setCurrentTheme] = useState<'light' | 'dark'>(() => {
+    if (typeof document !== 'undefined') {
+      return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+    }
+    return 'light';
+  });
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const gutterRef = useRef<HTMLDivElement>(null);
 

@@ -13,6 +13,8 @@ import {
   Clock,
   Tag,
   FileText,
+  AlertCircle,
+  CheckCircle2,
 } from 'lucide-react';
 import {
   getRecentFiles,
@@ -49,6 +51,8 @@ export function JsonRecentModal({
   const [snippetDesc, setSnippetDesc] = useState('');
   const [snippetTags, setSnippetTags] = useState('');
   const [snippetSearch, setSnippetSearch] = useState('');
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
 
   const refreshData = () => {
     setRecents(getRecentFiles());
@@ -83,7 +87,15 @@ export function JsonRecentModal({
       .map((t) => t.trim())
       .filter((t) => t.length > 0);
 
-    saveSnippet(snippetTitle, snippetDesc, tags, currentContent);
+    const result = saveSnippet(snippetTitle, snippetDesc, tags, currentContent);
+    if (!result.success) {
+      setSaveError(result.error || 'Failed to save snippet due to browser storage quota.');
+      return;
+    }
+
+    setSaveError(null);
+    setSaveSuccessMsg('Snippet saved successfully to favorites.');
+    setTimeout(() => setSaveSuccessMsg(null), 3000);
     setSnippetTitle('');
     setSnippetDesc('');
     setSnippetTags('');
@@ -261,6 +273,52 @@ export function JsonRecentModal({
                   />
                 </label>
               </div>
+
+              {/* Status Feedback Messages */}
+              {saveSuccessMsg && (
+                <div
+                  role="status"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.5rem 0.75rem',
+                    backgroundColor: 'var(--color-success-bg)',
+                    color: 'var(--color-success)',
+                    border: '1px solid var(--color-success-border)',
+                    borderRadius: 'var(--radius-md)',
+                    fontSize: '0.8125rem',
+                    fontWeight: 500,
+                    margin: '0.75rem 0',
+                  }}
+                >
+                  <CheckCircle2 size={15} style={{ flexShrink: 0 }} />
+                  <span>{saveSuccessMsg}</span>
+                </div>
+              )}
+
+              {saveError && (
+                <div
+                  role="alert"
+                  data-testid="snippet-storage-error"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.5rem 0.75rem',
+                    backgroundColor: 'var(--color-error-bg)',
+                    color: 'var(--color-error)',
+                    border: '1px solid var(--color-error-border)',
+                    borderRadius: 'var(--radius-md)',
+                    fontSize: '0.8125rem',
+                    fontWeight: 500,
+                    margin: '0.75rem 0',
+                  }}
+                >
+                  <AlertCircle size={15} style={{ flexShrink: 0 }} />
+                  <span>{saveError}</span>
+                </div>
+              )}
 
               {/* Save Snippet Drawer Form */}
               {isSavingSnippet && (

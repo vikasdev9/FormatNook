@@ -1,6 +1,6 @@
 import React from 'react';
 import { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { toolRegistry, getToolBySlug } from '@/config/tools';
 import { siteConfig } from '@/config/site';
 import { ToolPageLayout } from '@/components/workspace/ToolPageLayout';
@@ -28,6 +28,12 @@ export function generateStaticParams() {
 }
 
 export function generateMetadata({ params }: ToolPageProps): Metadata {
+  if (params.slug === 'text-compare') {
+    return {
+      title: 'Redirecting to Diff Checker - FormatNook',
+    };
+  }
+
   const tool = getToolBySlug(params.slug);
   if (!tool) {
     return {
@@ -60,6 +66,10 @@ export function generateMetadata({ params }: ToolPageProps): Metadata {
 }
 
 export default function ToolPage({ params }: ToolPageProps) {
+  if (params.slug === 'text-compare') {
+    redirect('/tools/diff-checker');
+  }
+
   const tool = getToolBySlug(params.slug);
 
   if (!tool || tool.status !== 'implemented') {
@@ -343,7 +353,6 @@ export default function ToolPage({ params }: ToolPageProps) {
 
       // Text Comparison / Diff Checker
       case 'diff-checker':
-      case 'text-compare':
       case 'text-diff':
         return <TextDiffWorkspace />;
 

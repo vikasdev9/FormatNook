@@ -16,8 +16,7 @@ describe('AllToolsDirectory Component Contrast & Visibility', () => {
       const htmlEl = card as HTMLElement;
       // Opacity must NOT be 0.75 (which causes faint washed out text)
       expect(htmlEl.style.opacity).not.toBe('0.75');
-      expect(htmlEl.style.cursor).toBe('default');
-      expect(htmlEl.style.borderStyle).toBe('solid');
+      expect(card.classList.contains('tool-card-roadmap')).toBe(true);
     });
   });
 
@@ -76,7 +75,7 @@ describe('CategoryPage Roadmap & Text Visibility', () => {
     roadmapCards.forEach((card) => {
       const htmlEl = card as HTMLElement;
       expect(htmlEl.style.opacity).not.toBe('0.75');
-      expect(htmlEl.style.borderStyle).toBe('solid');
+      expect(card.classList.contains('tool-card-roadmap')).toBe(true);
     });
 
     const roadmapStatuses = Array.from(container.querySelectorAll('span')).filter((s) =>

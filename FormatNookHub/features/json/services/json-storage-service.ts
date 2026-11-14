@@ -24,12 +24,14 @@ function safeGetItem(key: string): string | null {
   }
 }
 
-function safeSetItem(key: string, value: string): void {
-  if (typeof window === 'undefined') return;
+function safeSetItem(key: string, value: string): boolean {
+  if (typeof window === 'undefined') return false;
   try {
     localStorage.setItem(key, value);
+    return true;
   } catch (e) {
     console.warn(`Failed to save to localStorage (${key}):`, e);
+    return false;
   }
 }
 
@@ -99,20 +101,29 @@ export function getSnippets(): JsonSnippet[] {
   }
 }
 
+export interface SaveSnippetResult {
+  success: boolean;
+  snippet?: JsonSnippet;
+  error?: string;
+}
+
 export function saveSnippet(
   title: string,
   description: string,
   tags: string[],
   content: string,
   existingId?: string
-): JsonSnippet {
+): SaveSnippetResult {
   const snippets = getSnippets();
   const now = Date.now();
+
+  let targetSnippet: JsonSnippet;
+  let updatedSnippets: JsonSnippet[];
 
   if (existingId) {
     const idx = snippets.findIndex((s) => s.id === existingId);
     if (idx !== -1) {
-      snippets[idx] = {
+      targetSnippet = {
         ...snippets[idx],
         title,
         description,
@@ -120,24 +131,45 @@ export function saveSnippet(
         content,
         updatedAt: now,
       };
-      safeSetItem(SNIPPETS_STORAGE_KEY, JSON.stringify(snippets));
-      return snippets[idx];
+      updatedSnippets = [...snippets];
+      updatedSnippets[idx] = targetSnippet;
+    } else {
+      targetSnippet = {
+        id: `snp_${now}_${Math.random().toString(36).substring(2, 6)}`,
+        title: title || 'Untitled Snippet',
+        description: description || '',
+        tags: tags || [],
+        content,
+        createdAt: now,
+        updatedAt: now,
+      };
+      updatedSnippets = [targetSnippet, ...snippets];
     }
+  } else {
+    targetSnippet = {
+      id: `snp_${now}_${Math.random().toString(36).substring(2, 6)}`,
+      title: title || 'Untitled Snippet',
+      description: description || '',
+      tags: tags || [],
+      content,
+      createdAt: now,
+      updatedAt: now,
+    };
+    updatedSnippets = [targetSnippet, ...snippets];
   }
 
-  const newSnippet: JsonSnippet = {
-    id: `snp_${now}_${Math.random().toString(36).substring(2, 6)}`,
-    title: title || 'Untitled Snippet',
-    description: description || '',
-    tags: tags || [],
-    content,
-    createdAt: now,
-    updatedAt: now,
-  };
+  const ok = safeSetItem(SNIPPETS_STORAGE_KEY, JSON.stringify(updatedSnippets));
+  if (!ok) {
+    return {
+      success: false,
+      error: 'Browser storage quota exceeded. Free up space to save more snippets.',
+    };
+  }
 
-  const updated = [newSnippet, ...snippets];
-  safeSetItem(SNIPPETS_STORAGE_KEY, JSON.stringify(updated));
-  return newSnippet;
+  return {
+    success: true,
+    snippet: targetSnippet,
+  };
 }
 
 export function deleteSnippet(id: string): void {

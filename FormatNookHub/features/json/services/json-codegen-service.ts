@@ -49,15 +49,23 @@ export function toSnakeCase(str: string): string {
     .replace(/^_|_$/g, '') || 'field';
 }
 
+export const MAX_SCHEMA_DEPTH = 50;
+
 /**
  * Analyzes a JSON value and extracts nested class/type structure.
+ * Guards against unbounded recursion on adversarial or deeply nested objects.
  */
 export function inferSchema(
   value: any,
   name: string = 'Root',
   collectedClasses: Map<string, InferredField[]> = new Map(),
-  options: { optionalFields?: boolean } = {}
+  options: { optionalFields?: boolean } = {},
+  depth: number = 0
 ): InferredType {
+  if (depth > MAX_SCHEMA_DEPTH) {
+    return { kind: 'any' };
+  }
+
   if (value === null) {
     return { kind: 'null' };
   }
@@ -79,7 +87,7 @@ export function inferSchema(
       return { kind: 'array', elementType: { kind: 'any' } };
     }
     // Inspect elements to infer common type
-    const elemType = inferSchema(value[0], `${name}Item`, collectedClasses, options);
+    const elemType = inferSchema(value[0], `${name}Item`, collectedClasses, options, depth + 1);
     return { kind: 'array', elementType: elemType };
   }
 
@@ -88,7 +96,7 @@ export function inferSchema(
     const fields: InferredField[] = [];
 
     for (const [key, val] of Object.entries(value)) {
-      const fieldType = inferSchema(val, key, collectedClasses, options);
+      const fieldType = inferSchema(val, key, collectedClasses, options, depth + 1);
       fields.push({
         name: key,
         type: fieldType,
@@ -109,15 +117,18 @@ export function inferSchema(
  */
 function collectAllObjects(
   rootType: InferredType,
-  classes: Map<string, InferredField[]> = new Map()
+  classes: Map<string, InferredField[]> = new Map(),
+  depth: number = 0
 ): Map<string, InferredField[]> {
+  if (depth > MAX_SCHEMA_DEPTH) return classes;
+
   if (rootType.kind === 'object') {
     classes.set(rootType.className, rootType.fields);
     for (const field of rootType.fields) {
-      collectAllObjects(field.type, classes);
+      collectAllObjects(field.type, classes, depth + 1);
     }
   } else if (rootType.kind === 'array') {
-    collectAllObjects(rootType.elementType, classes);
+    collectAllObjects(rootType.elementType, classes, depth + 1);
   }
   return classes;
 }

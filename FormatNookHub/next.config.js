@@ -6,6 +6,15 @@ const nextConfig = {
   images: {
     unoptimized: true
   },
+  async redirects() {
+    return [
+      {
+        source: '/tools/text-compare',
+        destination: '/tools/diff-checker',
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {

@@ -108,11 +108,6 @@ export function AllToolsDirectory() {
               <div
                 key={tool.id}
                 className="tool-card tool-card-roadmap"
-                style={{
-                  border: '1px solid var(--border-subtle)',
-                  borderStyle: 'solid',
-                  cursor: 'default',
-                }}
               >
                 {CardContent}
               </div>

@@ -118,11 +118,6 @@ export default function CategoryPage({ params }: CategoryPageProps) {
                 <div
                   key={tool.id}
                   className="tool-card tool-card-roadmap"
-                  style={{
-                    border: '1px solid var(--border-subtle)',
-                    borderStyle: 'solid',
-                    cursor: 'default',
-                  }}
                 >
                   <div className="tool-card-icon">
                     <IconRenderer name={tool.icon} size={22} />

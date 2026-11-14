@@ -138,4 +138,20 @@ describe('JSON CodeGen Service', () => {
     expect(toCamelCase('UserProfileData')).toBe('userProfileData');
     expect(toSnakeCase('userProfileData')).toBe('user_profile_data');
   });
+
+  it('protects against stack overflow by capping maximum recursion depth at 50', () => {
+    // Construct deeply nested object with 70 levels of nesting
+    let deepObj: any = { value: 'leaf' };
+    for (let i = 0; i < 70; i++) {
+      deepObj = { nested: deepObj };
+    }
+
+    const schema = inferSchema(deepObj, 'DeepRoot');
+    expect(schema).toBeDefined();
+
+    const code = generateCodeFromData(deepObj, { language: 'typescript', rootClassName: 'DeepRoot' });
+    expect(code).toBeDefined();
+    expect(code).toContain('DeepRoot');
+    expect(code).toContain('nested: any;');
+  });
 });

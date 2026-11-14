@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   getRecentFiles,
   addRecentFile,
@@ -45,8 +45,10 @@ describe('json-storage-service', () => {
   });
 
   it('saves, exports, and imports favorite snippets', () => {
-    const snp = saveSnippet('Auth Header', 'Bearer token template', ['auth', 'jwt'], '{"Authorization": "Bearer token"}');
-    expect(snp.id).toBeDefined();
+    const res = saveSnippet('Auth Header', 'Bearer token template', ['auth', 'jwt'], '{"Authorization": "Bearer token"}');
+    expect(res.success).toBe(true);
+    expect(res.snippet).toBeDefined();
+    expect(res.snippet?.id).toBeDefined();
 
     const list = getSnippets();
     expect(list.length).toBe(1);
@@ -55,12 +57,27 @@ describe('json-storage-service', () => {
     const exported = exportSnippets();
     expect(exported).toContain('Auth Header');
 
-    deleteSnippet(snp.id);
+    deleteSnippet(res.snippet!.id);
     expect(getSnippets()).toHaveLength(0);
 
     const importedCount = importSnippets(exported);
     expect(importedCount).toBe(1);
     expect(getSnippets()[0].title).toBe('Auth Header');
+  });
+
+  it('handles localStorage quota exhaustion gracefully with an explicit error', () => {
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('QuotaExceededError: DOM Exception 22');
+    });
+
+    try {
+      const res = saveSnippet('Big Payload', 'Exceeds quota', [], '{"huge": true}');
+      expect(res.success).toBe(false);
+      expect(res.error).toContain('quota exceeded');
+      expect(res.snippet).toBeUndefined();
+    } finally {
+      setItemSpy.mockRestore();
+    }
   });
 
   it('manages editor preferences with defaults and persistence', () => {
