@@ -48,6 +48,9 @@ export function getExtensionFromMime(mimeType: string): string {
     'application/json': '.json',
     'application/xml': '.xml',
     'application/zip': '.zip',
+    'application/gzip': '.gz',
+    'application/x-7z-compressed': '.7z',
+    'image/bmp': '.bmp',
     'application/octet-stream': '.bin',
   };
 

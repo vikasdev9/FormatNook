@@ -266,6 +266,8 @@ export default function ToolPage({ params }: ToolPageProps) {
           <EncoderDecoderWorkspace
             toolId="html-to-base64"
             direction="encode"
+            pairedSlug="base64-to-text"
+            pairedName="Base64 to Text"
             defaultSample={'<div class="card">\n  <h1>Hello FormatNook</h1>\n  <p>Self-contained HTML document.</p>\n</div>'}
             outputFileName="html-base64.txt"
             mimeType="text/html"
@@ -276,6 +278,8 @@ export default function ToolPage({ params }: ToolPageProps) {
           <EncoderDecoderWorkspace
             toolId="css-to-base64"
             direction="encode"
+            pairedSlug="base64-to-text"
+            pairedName="Base64 to Text"
             defaultSample={'.card {\n  display: flex;\n  padding: 1.5rem;\n  border-radius: 12px;\n  background: #0f172a;\n}'}
             outputFileName="css-base64.txt"
             mimeType="text/css"
@@ -286,6 +290,8 @@ export default function ToolPage({ params }: ToolPageProps) {
           <EncoderDecoderWorkspace
             toolId="url-to-base64"
             direction="encode"
+            pairedSlug="base64-to-text"
+            pairedName="Base64 to Text"
             defaultSample="https://formatnook.com/callback?auth=true&session=123"
             outputFileName="url-base64.txt"
           />
@@ -348,7 +354,9 @@ export default function ToolPage({ params }: ToolPageProps) {
 
   return (
     <ToolPageLayout tool={tool}>
-      {renderToolWorkspace()}
+      <React.Fragment key={tool.slug}>
+        {renderToolWorkspace()}
+      </React.Fragment>
     </ToolPageLayout>
   );
 }

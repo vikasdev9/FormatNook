@@ -132,13 +132,61 @@ export function detectMimeFromBytes(bytes: Uint8Array): DetectedMimeResult {
     };
   }
 
-  // 11. Text / XML / SVG / HTML check
+  // 11. GZIP compressed: 0x1F 0x8B
+  if (bytes[0] === 0x1F && bytes[1] === 0x8B) {
+    return {
+      mimeType: 'application/gzip',
+      category: 'binary',
+      isSafeToPreview: false,
+      confidence: 'high',
+    };
+  }
+
+  // 12. ZIP archive: 'PK' (0x50 0x4B 0x03 0x04)
+  if (bytes[0] === 0x50 && bytes[1] === 0x4B && (bytes[2] === 0x03 || bytes[2] === 0x05)) {
+    return {
+      mimeType: 'application/zip',
+      category: 'binary',
+      isSafeToPreview: false,
+      confidence: 'high',
+    };
+  }
+
+  // 13. BMP Image: 'BM' (0x42 0x4D)
+  if (bytes[0] === 0x42 && bytes[1] === 0x4D) {
+    return {
+      mimeType: 'image/bmp',
+      category: 'image',
+      isSafeToPreview: true,
+      confidence: 'high',
+    };
+  }
+
+  // 14. 7-Zip: 0x37 0x7A 0xBC 0xAF
+  if (bytes[0] === 0x37 && bytes[1] === 0x7A && bytes[2] === 0xBC && bytes[3] === 0xAF) {
+    return {
+      mimeType: 'application/x-7z-compressed',
+      category: 'binary',
+      isSafeToPreview: false,
+      confidence: 'high',
+    };
+  }
+
+  // 15. Text / JSON / XML / SVG / HTML check
   const snippet = new TextDecoder('utf-8', { fatal: false }).decode(bytes.slice(0, 512)).trim();
   if (snippet.startsWith('<svg') || (snippet.startsWith('<?xml') && snippet.includes('<svg'))) {
     return {
       mimeType: 'image/svg+xml',
       category: 'image',
       isSafeToPreview: true,
+      confidence: 'high',
+    };
+  }
+  if (snippet.startsWith('<?xml')) {
+    return {
+      mimeType: 'application/xml',
+      category: 'text',
+      isSafeToPreview: false,
       confidence: 'high',
     };
   }
@@ -150,6 +198,19 @@ export function detectMimeFromBytes(bytes: Uint8Array): DetectedMimeResult {
       confidence: 'high',
     };
   }
+  if ((snippet.startsWith('{') && snippet.endsWith('}')) || (snippet.startsWith('[') && snippet.endsWith(']'))) {
+    try {
+      JSON.parse(snippet);
+      return {
+        mimeType: 'application/json',
+        category: 'text',
+        isSafeToPreview: false,
+        confidence: 'high',
+      };
+    } catch {
+      // not full valid JSON snippet, continue
+    }
+  }
 
   return {
     mimeType: 'application/octet-stream',
@@ -160,12 +221,54 @@ export function detectMimeFromBytes(bytes: Uint8Array): DetectedMimeResult {
 }
 
 /**
- * Detects MIME type from raw Base64 prefix
+ * Detects MIME type from raw Base64 prefix, safely normalizing whitespace and aligning boundaries.
  */
 export function detectMimeFromBase64String(b64: string): DetectedMimeResult {
-  const clean = b64.replace(/^data:([^;]+);base64,/, '').trim();
-  const binaryHeaderLength = Math.min(clean.length, 64);
-  const sample = clean.substring(0, binaryHeaderLength);
+  if (!b64 || typeof b64 !== 'string') {
+    return {
+      mimeType: 'application/octet-stream',
+      category: 'binary',
+      isSafeToPreview: false,
+      confidence: 'low',
+    };
+  }
+
+  // 1. Strip Data URI prefix (case-insensitive) and all whitespace (newlines, carriage returns, spaces, tabs)
+  let clean = b64.replace(/^data:[^;]+;base64,/i, '').replace(/\s+/g, '');
+  if (!clean) {
+    return {
+      mimeType: 'application/octet-stream',
+      category: 'binary',
+      isSafeToPreview: false,
+      confidence: 'low',
+    };
+  }
+
+  // 2. Normalize URL-safe characters (- and _) to standard Base64 (+ and /)
+  clean = clean.replace(/-/g, '+').replace(/_/g, '/');
+
+  // 3. Sample up to 64 chars (48 bytes) to detect leading magic bytes without decoding large payloads
+  const sampleLength = Math.min(clean.length, 64);
+  let sample = clean.substring(0, sampleLength);
+
+  // 4. Align sample to a 4-character Base64 boundary or restore padding
+  const remainder = sample.length % 4;
+  if (remainder === 2) {
+    sample += '==';
+  } else if (remainder === 3) {
+    sample += '=';
+  } else if (remainder === 1) {
+    // 1 single Base64 character carries 6 bits and cannot complete a byte: slice off
+    sample = sample.slice(0, -1);
+    if (!sample) {
+      return {
+        mimeType: 'application/octet-stream',
+        category: 'binary',
+        isSafeToPreview: false,
+        confidence: 'low',
+      };
+    }
+  }
 
   try {
     const raw = atob(sample);

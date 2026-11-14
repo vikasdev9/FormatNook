@@ -278,3 +278,29 @@ export function decodeBasicAuth(input: string): BasicAuthCredentials {
     isValid: true,
   };
 }
+
+/**
+ * Basic Authentication Encoder
+ * Generates RFC 7617 Basic Authorization headers strictly in browser memory.
+ */
+export function encodeBasicAuth(username: string, password = ''): {
+  authorizationHeader: string;
+  base64Token: string;
+  curlExample: string;
+  fetchExample: string;
+} {
+  const credentials = `${username}:${password}`;
+  const encoder = new TextEncoder();
+  const bytes = encoder.encode(credentials);
+  const base64Token = bytesToBase64(bytes);
+  const authorizationHeader = `Authorization: Basic ${base64Token}`;
+  const curlExample = `curl -H "Authorization: Basic ${base64Token}" https://api.example.com/data`;
+  const fetchExample = `fetch('https://api.example.com/data', {\n  headers: {\n    'Authorization': 'Basic ${base64Token}'\n  }\n});`;
+
+  return {
+    authorizationHeader,
+    base64Token,
+    curlExample,
+    fetchExample,
+  };
+}

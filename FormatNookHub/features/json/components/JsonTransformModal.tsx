@@ -312,6 +312,32 @@ export function JsonTransformModal({
 
           {/* Contextual Options Bar */}
           <div className="transform-options-bar">
+            {selectedType === 'csv' && (
+              <div className="options-inline-row">
+                <label>Delimiter:</label>
+                <select
+                  data-testid="csv-delimiter-select"
+                  className="select-control select-xs"
+                  value={csvDelimiter}
+                  onChange={(e) => setCsvDelimiter(e.target.value as any)}
+                >
+                  <option value=",">Comma (,)</option>
+                  <option value=";">Semicolon (;)</option>
+                  <option value="&#9;">Tab (\t)</option>
+                </select>
+                <label>Nested Objects:</label>
+                <select
+                  className="select-control select-xs"
+                  value={csvNestedStrategy}
+                  onChange={(e) => setCsvNestedStrategy(e.target.value as any)}
+                >
+                  <option value="json-string">JSON String</option>
+                  <option value="flatten">Flatten Keys</option>
+                  <option value="discard">Discard Nested</option>
+                </select>
+              </div>
+            )}
+
             {selectedType === 'tsv' && (
               <div className="options-inline-row">
                 <label>Tab-Separated Output</label>

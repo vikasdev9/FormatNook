@@ -47,10 +47,44 @@ import {
   ParsedImageInfo,
   DetailedFileMetadata,
 } from '../types/file-metadata.types';
+import { base64ToBytes } from '../services/base64.service';
+import { Base64InspectorView } from './Base64InspectorView';
+import { Base64ValidatorView } from './Base64ValidatorView';
+import { Base64RepairView } from './Base64RepairView';
+import { DataUriWorkbenchView } from './DataUriWorkbenchView';
+import { PayloadExtractorView } from './PayloadExtractorView';
+import { HexViewer } from './HexViewer';
+import { GzipBase64View } from './GzipBase64View';
+import { BasicAuthWorkspace } from './BasicAuthWorkspace';
+import {
+  Binary,
+  Search,
+  ShieldCheck,
+  Wrench,
+  Link2,
+  ScanSearch,
+  FileCode,
+  Archive,
+  Lock,
+  ArrowRightLeft,
+  WrapText,
+} from 'lucide-react';
+
+export type WorkbenchViewTab =
+  | 'editor'
+  | 'inspect'
+  | 'validate'
+  | 'repair'
+  | 'data-uri'
+  | 'extractor'
+  | 'hex-viewer'
+  | 'gzip'
+  | 'basic-auth';
 
 interface EncoderDecoderWorkspaceProps {
   toolId: EncoderDecoderToolId;
   direction: 'encode' | 'decode';
+  initialWorkbenchTab?: WorkbenchViewTab;
   pairedSlug?: string;
   pairedName?: string;
   acceptedExtensions?: string[];
@@ -70,7 +104,12 @@ export function EncoderDecoderWorkspace({
   defaultSample = '',
   outputFileName = 'output.txt',
   mimeType = 'text/plain',
+  initialWorkbenchTab = 'editor',
 }: EncoderDecoderWorkspaceProps) {
+  // Navigation tab state
+  const [workbenchTab, setWorkbenchTab] = useState<WorkbenchViewTab>(initialWorkbenchTab);
+  const [hexBytes, setHexBytes] = useState<Uint8Array | null>(null);
+
   // Input states
   const [textInput, setTextInput] = useState<string>(defaultSample);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -81,6 +120,7 @@ export function EncoderDecoderWorkspace({
   const [dataUriMode, setDataUriMode] = useState<'raw' | 'data-uri'>('data-uri');
   const [hexOptions, setHexOptions] = useState<HexFormatOptions>({ uppercase: true, grouping: 'space' });
   const [customFilename, setCustomFilename] = useState(outputFileName);
+  const [wrapText, setWrapText] = useState(true);
 
   // Dynamic Image Output Format Switcher states (for Base64 to Image)
   const [imageFormatOptions, setImageFormatOptions] = useState<ImageConversionOptions>({
@@ -110,6 +150,28 @@ export function EncoderDecoderWorkspace({
     issues: [],
   });
 
+  // Keep hex dump bytes synced with current content
+  useEffect(() => {
+    if (decodedBlob) {
+      decodedBlob.arrayBuffer().then((buf) => setHexBytes(new Uint8Array(buf)));
+    } else if (outputString.trim()) {
+      const res = base64ToBytes(outputString);
+      if (res.isValid && res.bytes.length > 0) {
+        setHexBytes(res.bytes);
+      } else if (textInput.trim()) {
+        const textRes = base64ToBytes(textInput);
+        setHexBytes(textRes.isValid ? textRes.bytes : new TextEncoder().encode(textInput));
+      } else {
+        setHexBytes(null);
+      }
+    } else if (textInput.trim()) {
+      const res = base64ToBytes(textInput);
+      setHexBytes(res.isValid ? res.bytes : new TextEncoder().encode(textInput));
+    } else {
+      setHexBytes(null);
+    }
+  }, [decodedBlob, textInput, outputString]);
+
   // Track active Object URLs for revocation
   const activeObjectUrls = useRef<string[]>([]);
   const registerObjectUrl = (url?: string | null) => {
@@ -134,11 +196,28 @@ export function EncoderDecoderWorkspace({
     };
   }, []);
 
-  // Execute conversion whenever input or settings change
+  // Re-synchronize workspace state when toolId, direction, or defaultSample changes
+  useEffect(() => {
+    setTextInput(defaultSample || '');
+    setSelectedFile(null);
+    setFileMetadata(null);
+    setOutputString('');
+    setDataUriString('');
+    setDecodedBlob(null);
+    setMediaPreviewUrl(null);
+    setConvertedImage(null);
+    setParsedSourceImage(null);
+    setCustomFilename(outputFileName);
+    setDetectedMime(mimeType);
+    setValidation({ isValid: null, issues: [] });
+    setWorkbenchTab(initialWorkbenchTab);
+  }, [toolId, direction, defaultSample, outputFileName, mimeType, initialWorkbenchTab]);
+
+  // Execute conversion whenever input, settings, or active tool change
   useEffect(() => {
     executeJob();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [textInput, selectedFile, urlSafe, hexOptions, dataUriMode]);
+  }, [toolId, direction, textInput, selectedFile, urlSafe, hexOptions, dataUriMode, imageFormatOptions]);
 
   const executeJob = async () => {
     // 1. Text to Base64
@@ -530,215 +609,437 @@ export function EncoderDecoderWorkspace({
 
   return (
     <div className="tool-workspace-container">
-      {pairedSlug && (
-        <ToolModeTabs
-          currentSlug={toolId}
-          pairedSlug={pairedSlug}
-          pairedName={pairedName}
-          activeDirection={direction}
-        />
-      )}
+      {/* Primary Base64 Developer Suite Tabs */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.35rem',
+          overflowX: 'auto',
+          paddingBottom: '0.5rem',
+          borderBottom: '1px solid #263449',
+          marginBottom: '1rem',
+          scrollbarWidth: 'thin',
+        }}
+        role="tablist"
+      >
+        <button
+          role="tab"
+          aria-selected={workbenchTab === 'editor'}
+          className={`btn btn-sm ${workbenchTab === 'editor' ? 'btn-primary' : 'btn-ghost'}`}
+          onClick={() => setWorkbenchTab('editor')}
+          style={{ whiteSpace: 'nowrap' }}
+        >
+          <Binary size={14} />
+          <span>Workspace</span>
+        </button>
 
-      {/* Main Action Bar */}
-      <div className="tool-toolbar">
-        <div className="toolbar-group-left">
-          {/* URL-Safe checkbox for text & hex */}
-          {(toolId === 'text-to-base64' || toolId === 'hex-to-base64' || toolId === 'url-to-base64') && (
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8125rem', cursor: 'pointer' }}>
-              <input
-                type="checkbox"
-                checked={urlSafe}
-                onChange={(e) => setUrlSafe(e.target.checked)}
-              />
-              <span>URL-Safe (- and _)</span>
-            </label>
-          )}
+        <button
+          role="tab"
+          aria-selected={workbenchTab === 'inspect'}
+          className={`btn btn-sm ${workbenchTab === 'inspect' ? 'btn-primary' : 'btn-ghost'}`}
+          onClick={() => setWorkbenchTab('inspect')}
+          style={{ whiteSpace: 'nowrap' }}
+        >
+          <Search size={14} />
+          <span>Smart Inspector</span>
+        </button>
 
-          {/* Data URI vs Raw Base64 for file encoders */}
-          {(isFileInput || toolId === 'html-to-base64' || toolId === 'css-to-base64') && (
-            <div style={{ display: 'flex', gap: '0.25rem' }}>
-              <button
-                className={`btn btn-sm ${dataUriMode === 'data-uri' ? 'btn-primary' : 'btn-ghost'}`}
-                onClick={() => setDataUriMode('data-uri')}
-              >
-                Data URI
-              </button>
-              <button
-                className={`btn btn-sm ${dataUriMode === 'raw' ? 'btn-primary' : 'btn-ghost'}`}
-                onClick={() => setDataUriMode('raw')}
-              >
-                Raw Base64
-              </button>
-            </div>
-          )}
+        <button
+          role="tab"
+          aria-selected={workbenchTab === 'validate'}
+          className={`btn btn-sm ${workbenchTab === 'validate' ? 'btn-primary' : 'btn-ghost'}`}
+          onClick={() => setWorkbenchTab('validate')}
+          style={{ whiteSpace: 'nowrap' }}
+        >
+          <ShieldCheck size={14} />
+          <span>Validator</span>
+        </button>
 
-          {/* Hex formatting options */}
-          {toolId === 'base64-to-hex' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.8125rem' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                <input
-                  type="checkbox"
-                  checked={hexOptions.uppercase}
-                  onChange={(e) => setHexOptions({ ...hexOptions, uppercase: e.target.checked })}
-                />
-                <span>Uppercase</span>
-              </label>
+        <button
+          role="tab"
+          aria-selected={workbenchTab === 'repair'}
+          className={`btn btn-sm ${workbenchTab === 'repair' ? 'btn-primary' : 'btn-ghost'}`}
+          onClick={() => setWorkbenchTab('repair')}
+          style={{ whiteSpace: 'nowrap' }}
+        >
+          <Wrench size={14} />
+          <span>Repair & Normalize</span>
+        </button>
 
-              <select
-                className="select-control"
-                value={hexOptions.grouping}
-                onChange={(e) => setHexOptions({ ...hexOptions, grouping: e.target.value as any })}
-              >
-                <option value="none">No Space</option>
-                <option value="space">Space Separated</option>
-                <option value="colon">Colon (:) Separated</option>
-                <option value="hyphen">Hyphen (-) Separated</option>
-              </select>
-            </div>
-          )}
+        <button
+          role="tab"
+          aria-selected={workbenchTab === 'data-uri'}
+          className={`btn btn-sm ${workbenchTab === 'data-uri' ? 'btn-primary' : 'btn-ghost'}`}
+          onClick={() => setWorkbenchTab('data-uri')}
+          style={{ whiteSpace: 'nowrap' }}
+        >
+          <Link2 size={14} />
+          <span>Data URI</span>
+        </button>
 
-          {/* Custom Filename for Base64 to File */}
-          {toolId === 'base64-to-file' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8125rem' }}>
-              <label htmlFor="custom-fname">Save As:</label>
-              <input
-                id="custom-fname"
-                type="text"
-                className="select-control"
-                value={customFilename}
-                onChange={(e) => setCustomFilename(e.target.value)}
-                style={{ width: '160px' }}
-              />
-            </div>
-          )}
-        </div>
+        <button
+          role="tab"
+          aria-selected={workbenchTab === 'extractor'}
+          className={`btn btn-sm ${workbenchTab === 'extractor' ? 'btn-primary' : 'btn-ghost'}`}
+          onClick={() => setWorkbenchTab('extractor')}
+          style={{ whiteSpace: 'nowrap' }}
+        >
+          <ScanSearch size={14} />
+          <span>Payload Extractor</span>
+        </button>
 
-        <div className="toolbar-group-right">
-          <ResetButton onReset={handleReset} />
-        </div>
+        <button
+          role="tab"
+          aria-selected={workbenchTab === 'hex-viewer'}
+          className={`btn btn-sm ${workbenchTab === 'hex-viewer' ? 'btn-primary' : 'btn-ghost'}`}
+          onClick={() => setWorkbenchTab('hex-viewer')}
+          style={{ whiteSpace: 'nowrap' }}
+        >
+          <FileCode size={14} />
+          <span>Hex Viewer</span>
+        </button>
+
+        <button
+          role="tab"
+          aria-selected={workbenchTab === 'gzip'}
+          className={`btn btn-sm ${workbenchTab === 'gzip' ? 'btn-primary' : 'btn-ghost'}`}
+          onClick={() => setWorkbenchTab('gzip')}
+          style={{ whiteSpace: 'nowrap' }}
+        >
+          <Archive size={14} />
+          <span>Gzip Compression</span>
+        </button>
+
+        <button
+          role="tab"
+          aria-selected={workbenchTab === 'basic-auth'}
+          className={`btn btn-sm ${workbenchTab === 'basic-auth' ? 'btn-primary' : 'btn-ghost'}`}
+          onClick={() => setWorkbenchTab('basic-auth')}
+          style={{ whiteSpace: 'nowrap' }}
+        >
+          <Lock size={14} />
+          <span>Basic Auth</span>
+        </button>
       </div>
 
-      <ValidationMessage
-        isValid={validation.isValid}
-        issues={validation.issues}
-        successMessage={`Successfully ${direction === 'encode' ? 'Encoded to Base64' : 'Decoded'}`}
-      />
-
-      {isLargeOutput && (
-        <LargeOutputNotice
-          totalBytes={outputString.length}
-          onDownload={handleDownloadOutput}
-          fileName={outputFileName}
+      {workbenchTab === 'inspect' && (
+        <Base64InspectorView
+          initialPayload={textInput || outputString}
+          onNavigateToMode={(mode, payload) => {
+            if (payload) setTextInput(payload);
+            setWorkbenchTab('editor');
+          }}
         />
       )}
 
-      {/* Workspace Panels */}
-      <div className="editor-workspace-grid">
-        {/* Left Column: Input (File or Text) */}
-        <div className="editor-panel">
-          <div className="panel-header">
-            <span className="panel-title-group">
-              {isFileInput ? 'Select or Drop File' : 'Input'}
-            </span>
-            <div className="panel-actions">
-              {!isFileInput && <CopyButton text={textInput} label="Copy" />}
-            </div>
-          </div>
+      {workbenchTab === 'validate' && (
+        <Base64ValidatorView
+          initialPayload={textInput || outputString}
+          onSendToRepair={(payload) => {
+            setTextInput(payload);
+            setWorkbenchTab('repair');
+          }}
+        />
+      )}
 
-          <div className="panel-body" style={{ padding: isFileInput ? '1.25rem' : '0' }}>
-            {isFileInput ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%' }}>
-                {fileMetadata && <FileMetadata metadata={fileMetadata} />}
-                <FileUploadZone
-                  onFileSelect={handleFileDrop}
-                  acceptedExtensions={acceptedExtensions}
-                  label={`Drop ${fileCategory !== 'any' ? fileCategory : 'file'} or click to browse`}
-                />
-              </div>
-            ) : (
-              <textarea
-                className="editor-textarea"
-                value={textInput}
-                onChange={(e) => setTextInput(e.target.value)}
-                placeholder="Paste input here..."
-                spellCheck="false"
-              />
-            )}
-          </div>
-        </div>
+      {workbenchTab === 'repair' && (
+        <Base64RepairView
+          initialPayload={textInput || outputString}
+          onSendToDecode={(payload) => {
+            setTextInput(payload);
+            setWorkbenchTab('editor');
+          }}
+        />
+      )}
 
-        {/* Right Column: Output (Media Preview or Text) */}
-        <div className="editor-panel">
-          <div className="panel-header">
-            <span className="panel-title-group">
-              {isMediaDecoder ? 'Decoded Media Preview' : 'Output'}
-            </span>
-            <div className="panel-actions">
-              {!isMediaDecoder && <CopyButton text={outputString} label="Copy Output" />}
-              <DownloadButton
-                content={
-                  toolId === 'base64-to-image' && convertedImage
-                    ? convertedImage.blob
-                    : outputString || decodedBlob || ''
-                }
-                fileName={
-                  toolId === 'base64-to-image' && convertedImage
-                    ? convertedImage.suggestedFilename
-                    : customFilename || outputFileName
-                }
-                mimeType={
-                  toolId === 'base64-to-image' && convertedImage
-                    ? convertedImage.mimeType
-                    : detectedMime
-                }
-                onDownload={handleDownloadOutput}
-                disabled={!outputString && !decodedBlob && !convertedImage}
-              />
-            </div>
-          </div>
+      {workbenchTab === 'data-uri' && <DataUriWorkbenchView />}
 
-          <div className="panel-body" style={{ padding: isMediaDecoder ? '1.25rem' : '0' }}>
-            {/* Dynamic Output Format Switcher Toolbar for Base64 to Image */}
-            {toolId === 'base64-to-image' && decodedBlob && (
-              <FormatSelector
-                options={imageFormatOptions}
-                onChange={handleImageFormatChange}
-                detectedMime={parsedSourceImage?.mimeType || detectedMime}
-                disabled={isConvertingImage}
-              />
-            )}
+      {workbenchTab === 'extractor' && (
+        <PayloadExtractorView
+          onInspectCandidate={(payload) => {
+            setTextInput(payload);
+            setWorkbenchTab('inspect');
+          }}
+          onDecodeCandidate={(payload) => {
+            setTextInput(payload);
+            setWorkbenchTab('editor');
+          }}
+        />
+      )}
 
-            {isMediaDecoder ? (
-              mediaPreviewUrl ? (
-                <FilePreview
-                  mediaUrl={mediaPreviewUrl}
-                  mimeType={detectedMime}
-                  fileName={convertedImage?.suggestedFilename || customFilename}
-                  fileSize={convertedImage ? convertedImage.sizeBytes : decodedBlob ? decodedBlob.size : 0}
-                  dimensions={convertedImage?.width && convertedImage?.height ? { width: convertedImage.width, height: convertedImage.height } : parsedSourceImage?.dimensions}
-                  isConverting={isConvertingImage}
-                  onDownload={handleDownloadOutput}
-                />
-              ) : (
-                <div style={{ margin: 'auto', textAlign: 'center', color: 'var(--text-muted)' }}>
-                  Paste Base64 data on the left to decode and preview.
+      {workbenchTab === 'hex-viewer' && (
+        <HexViewer bytes={hexBytes} filename={customFilename || outputFileName} />
+      )}
+
+      {workbenchTab === 'gzip' && <GzipBase64View />}
+
+      {workbenchTab === 'basic-auth' && <BasicAuthWorkspace />}
+
+      {workbenchTab === 'editor' && (
+        <>
+          <ToolModeTabs
+            currentSlug={toolId}
+            pairedSlug={pairedSlug}
+            pairedName={pairedName}
+            activeDirection={direction}
+          />
+
+          {/* Main Action Bar */}
+          <div className="tool-toolbar">
+            <div className="toolbar-group-left">
+              {/* URL-Safe checkbox for text & hex */}
+              {(toolId === 'text-to-base64' || toolId === 'hex-to-base64' || toolId === 'url-to-base64') && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8125rem', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={urlSafe}
+                    onChange={(e) => setUrlSafe(e.target.checked)}
+                  />
+                  <span>URL-Safe (- and _)</span>
+                </label>
+              )}
+
+              {/* Data URI vs Raw Base64 for file encoders */}
+              {(isFileInput || toolId === 'html-to-base64' || toolId === 'css-to-base64') && (
+                <div style={{ display: 'flex', gap: '0.25rem' }}>
+                  <button
+                    className={`btn btn-sm ${dataUriMode === 'data-uri' ? 'btn-primary' : 'btn-ghost'}`}
+                    onClick={() => setDataUriMode('data-uri')}
+                  >
+                    Data URI
+                  </button>
+                  <button
+                    className={`btn btn-sm ${dataUriMode === 'raw' ? 'btn-primary' : 'btn-ghost'}`}
+                    onClick={() => setDataUriMode('raw')}
+                  >
+                    Raw Base64
+                  </button>
                 </div>
-              )
-            ) : (
-              <textarea
-                className="editor-textarea"
-                readOnly
-                value={outputString}
-                placeholder="Result will appear here..."
-              />
-            )}
-          </div>
-        </div>
-      </div>
+              )}
 
-      {/* Feature-Driven Expandable File Details Section */}
-      {detailedMetadata && (
-        <FileDetailsPanel metadata={detailedMetadata} defaultExpanded={false} />
+              {/* Hex formatting options */}
+              {toolId === 'base64-to-hex' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.8125rem' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                    <input
+                      type="checkbox"
+                      checked={hexOptions.uppercase}
+                      onChange={(e) => setHexOptions({ ...hexOptions, uppercase: e.target.checked })}
+                    />
+                    <span>Uppercase</span>
+                  </label>
+
+                  <select
+                    className="select-control"
+                    value={hexOptions.grouping}
+                    onChange={(e) => setHexOptions({ ...hexOptions, grouping: e.target.value as any })}
+                  >
+                    <option value="none">No Space</option>
+                    <option value="space">Space Separated</option>
+                    <option value="colon">Colon (:) Separated</option>
+                    <option value="hyphen">Hyphen (-) Separated</option>
+                  </select>
+                </div>
+              )}
+
+              {/* Custom Filename for Base64 to File */}
+              {toolId === 'base64-to-file' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8125rem' }}>
+                  <label htmlFor="custom-fname">Save As:</label>
+                  <input
+                    id="custom-fname"
+                    type="text"
+                    className="select-control"
+                    value={customFilename}
+                    onChange={(e) => setCustomFilename(e.target.value)}
+                    style={{ width: '160px' }}
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="toolbar-group-right" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <button
+                type="button"
+                className="btn btn-sm btn-primary"
+                onClick={() => executeJob()}
+                title={direction === 'encode' ? 'Encode to Base64' : 'Decode Base64'}
+              >
+                {direction === 'encode' ? <Binary size={14} /> : <ArrowRightLeft size={14} />}
+                <span>{direction === 'encode' ? 'Encode to Base64' : 'Decode Payload'}</span>
+              </button>
+              <ResetButton onReset={handleReset} />
+            </div>
+          </div>
+
+          <ValidationMessage
+            isValid={validation.isValid}
+            issues={validation.issues}
+            successMessage={`Successfully ${direction === 'encode' ? 'Encoded to Base64' : 'Decoded'}`}
+          />
+
+          {isLargeOutput && (
+            <LargeOutputNotice
+              totalBytes={outputString.length}
+              onDownload={handleDownloadOutput}
+              fileName={outputFileName}
+            />
+          )}
+
+          {/* Workspace Panels */}
+          <div className="editor-workspace-grid">
+            {/* Left Column: Input (File or Text) */}
+            <div className="editor-panel">
+              <div className="panel-header">
+                <span className="panel-title-group">
+                  {isFileInput ? 'Select or Drop File' : 'Input'}
+                </span>
+                <div className="panel-actions">
+                  {!isFileInput && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setWrapText(!wrapText)}
+                        className={`btn btn-xs ${wrapText ? 'btn-primary' : 'btn-ghost'}`}
+                        style={{ fontSize: '0.75rem', gap: '0.25rem', padding: '0.2rem 0.5rem' }}
+                        title={wrapText ? 'Disable Word Wrap' : 'Enable Word Wrap'}
+                        aria-pressed={wrapText}
+                      >
+                        <WrapText size={13} />
+                        <span>Wrap</span>
+                      </button>
+                      <CopyButton text={textInput} label="Copy" />
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <div className="panel-body" style={{ padding: isFileInput ? '1.25rem' : '0' }}>
+                {isFileInput ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%' }}>
+                    {fileMetadata && <FileMetadata metadata={fileMetadata} />}
+                    <FileUploadZone
+                      onFileSelect={handleFileDrop}
+                      acceptedExtensions={acceptedExtensions}
+                      label={`Drop ${fileCategory !== 'any' ? fileCategory : 'file'} or click to browse`}
+                    />
+                  </div>
+                ) : (
+                  <textarea
+                    className={`editor-textarea ${wrapText ? 'wrap-text' : ''}`}
+                    value={textInput}
+                    onChange={(e) => setTextInput(e.target.value)}
+                    placeholder="Paste input here..."
+                    spellCheck="false"
+                    style={{
+                      whiteSpace: wrapText ? 'pre-wrap' : 'pre',
+                      wordBreak: wrapText ? 'break-all' : 'normal',
+                      overflowWrap: wrapText ? 'anywhere' : 'normal',
+                      overflowY: 'auto',
+                      overflowX: wrapText ? 'hidden' : 'auto',
+                    }}
+                  />
+                )}
+              </div>
+            </div>
+
+            {/* Right Column: Output (Media Preview or Text) */}
+            <div className="editor-panel">
+              <div className="panel-header">
+                <span className="panel-title-group">
+                  {isMediaDecoder ? 'Decoded Media Preview' : 'Output'}
+                </span>
+                <div className="panel-actions">
+                  {!isMediaDecoder && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setWrapText(!wrapText)}
+                        className={`btn btn-xs ${wrapText ? 'btn-primary' : 'btn-ghost'}`}
+                        style={{ fontSize: '0.75rem', gap: '0.25rem', padding: '0.2rem 0.5rem' }}
+                        title={wrapText ? 'Disable Word Wrap' : 'Enable Word Wrap'}
+                        aria-pressed={wrapText}
+                      >
+                        <WrapText size={13} />
+                        <span>Wrap</span>
+                      </button>
+                      <CopyButton text={outputString} label="Copy Output" />
+                    </>
+                  )}
+                  <DownloadButton
+                    content={
+                      toolId === 'base64-to-image' && convertedImage
+                        ? convertedImage.blob
+                        : outputString || decodedBlob || ''
+                    }
+                    fileName={
+                      toolId === 'base64-to-image' && convertedImage
+                        ? convertedImage.suggestedFilename
+                        : customFilename || outputFileName
+                    }
+                    mimeType={
+                      toolId === 'base64-to-image' && convertedImage
+                        ? convertedImage.mimeType
+                        : detectedMime
+                    }
+                    onDownload={handleDownloadOutput}
+                    disabled={!outputString && !decodedBlob && !convertedImage}
+                  />
+                </div>
+              </div>
+
+              <div className="panel-body" style={{ padding: isMediaDecoder ? '1.25rem' : '0' }}>
+                {/* Dynamic Output Format Switcher Toolbar for Base64 to Image */}
+                {toolId === 'base64-to-image' && decodedBlob && (
+                  <FormatSelector
+                    options={imageFormatOptions}
+                    onChange={handleImageFormatChange}
+                    detectedMime={parsedSourceImage?.mimeType || detectedMime}
+                    disabled={isConvertingImage}
+                  />
+                )}
+
+                {isMediaDecoder ? (
+                  mediaPreviewUrl ? (
+                    <FilePreview
+                      mediaUrl={mediaPreviewUrl}
+                      mimeType={detectedMime}
+                      fileName={convertedImage?.suggestedFilename || customFilename}
+                      fileSize={convertedImage ? convertedImage.sizeBytes : decodedBlob ? decodedBlob.size : 0}
+                      dimensions={convertedImage?.width && convertedImage?.height ? { width: convertedImage.width, height: convertedImage.height } : parsedSourceImage?.dimensions}
+                      isConverting={isConvertingImage}
+                      onDownload={handleDownloadOutput}
+                    />
+                  ) : (
+                    <div style={{ margin: 'auto', textAlign: 'center', color: 'var(--text-muted)' }}>
+                      Paste Base64 data on the left to decode and preview.
+                    </div>
+                  )
+                ) : (
+                  <textarea
+                    className={`editor-textarea ${wrapText ? 'wrap-text' : ''}`}
+                    readOnly
+                    value={outputString}
+                    placeholder="Result will appear here..."
+                    style={{
+                      whiteSpace: wrapText ? 'pre-wrap' : 'pre',
+                      wordBreak: wrapText ? 'break-all' : 'normal',
+                      overflowWrap: wrapText ? 'anywhere' : 'normal',
+                      overflowY: 'auto',
+                      overflowX: wrapText ? 'hidden' : 'auto',
+                    }}
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Feature-Driven Expandable File Details Section */}
+          {detailedMetadata && (
+            <FileDetailsPanel metadata={detailedMetadata} defaultExpanded={false} />
+          )}
+        </>
       )}
     </div>
   );

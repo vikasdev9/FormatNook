@@ -173,7 +173,8 @@ export function CodeEditor({
           style={{
             fontSize: `${fontSize}px`,
             whiteSpace: wordWrap ? 'pre-wrap' : 'pre',
-            wordBreak: wordWrap ? 'break-word' : 'normal',
+            wordBreak: wordWrap ? 'break-all' : 'normal',
+            overflowWrap: wordWrap ? 'anywhere' : 'normal',
           }}
         />
       </div>
