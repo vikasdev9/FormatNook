@@ -9,6 +9,7 @@ const VIEWPORTS = [
   { name: '430px iPhone 14 Pro Max', width: 430, height: 932 },
   { name: '390px iPhone 14', width: 390, height: 844 },
   { name: '375px Mobile Small', width: 375, height: 812 },
+  { name: '320px Ultra-Compact Mobile', width: 320, height: 568 },
 ];
 
 const PAGES_TO_CHECK = [
@@ -38,5 +39,34 @@ test.describe('Responsive Viewports Multi-Screen Verification', () => {
       }
     });
   }
+
+  test('Mobile Smartphone (375px) workspace panel switcher toggles input and output panels', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+
+    // 1. Base64 Workspace
+    await page.goto('/tools/text-to-base64', { waitUntil: 'domcontentloaded' });
+    const base64MobileTabs = page.locator('.workspace-mobile-tabs');
+    await expect(base64MobileTabs).toBeVisible();
+
+    const outputTab = page.getByRole('tab', { name: /Output Result/i });
+    await outputTab.click();
+    const inputPanel = page.locator('.editor-panel').first();
+    await expect(inputPanel).toHaveClass(/mobile-panel-hidden/);
+
+    // 2. XML Workspace
+    await page.goto('/tools/xml-formatter', { waitUntil: 'domcontentloaded' });
+    const xmlMobileTabs = page.locator('.workspace-mobile-tabs');
+    await expect(xmlMobileTabs).toBeVisible();
+
+    // 3. YAML Workspace
+    await page.goto('/tools/yaml-formatter', { waitUntil: 'domcontentloaded' });
+    const yamlMobileTabs = page.locator('.workspace-mobile-tabs');
+    await expect(yamlMobileTabs).toBeVisible();
+
+    // 4. Diff Workspace
+    await page.goto('/tools/diff-checker', { waitUntil: 'domcontentloaded' });
+    const diffMobileTabs = page.locator('.workspace-mobile-tabs');
+    await expect(diffMobileTabs).toBeVisible();
+  });
 });
 

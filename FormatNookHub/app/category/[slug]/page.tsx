@@ -96,7 +96,7 @@ export default function CategoryPage({ params }: CategoryPageProps) {
                 <div className="tool-card-title">{tool.name}</div>
                 <div className="tool-card-desc">{tool.description}</div>
                 <div className="tool-card-footer">
-                  <span className="badge badge-success" style={{ fontSize: '0.6875rem' }}>
+                  <span className="badge badge-success">
                     <CheckCircle2 size={12} /> Available
                   </span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'var(--accent-primary)', fontWeight: 500 }}>
@@ -122,10 +122,10 @@ export default function CategoryPage({ params }: CategoryPageProps) {
                   <div className="tool-card-title">{tool.name}</div>
                   <div className="tool-card-desc">{tool.description}</div>
                   <div className="tool-card-footer">
-                    <span className="badge badge-neutral" style={{ fontSize: '0.6875rem' }}>
+                    <span className="badge badge-neutral">
                       <Clock size={12} /> Planned
                     </span>
-                    <span style={{ color: 'var(--text-subtle)', fontSize: '0.75rem' }}>
+                    <span style={{ color: 'var(--text-subtle)' }}>
                       In Development
                     </span>
                   </div>

@@ -37,6 +37,7 @@ export function BeautifierWorkspace({
   const [input, setInput] = useState<string>(defaultSample);
   const [output, setOutput] = useState<string>('');
   const [indent, setIndent] = useState<IndentOption>('2');
+  const [mobileTab, setMobileTab] = useState<'both' | 'input' | 'output'>('both');
   const [validationState, setValidationState] = useState<{ isValid: boolean | null; issues: ValidationIssue[] }>({
     isValid: null,
     issues: [],
@@ -119,8 +120,39 @@ export function BeautifierWorkspace({
 
       <ValidationResult isValid={validationState.isValid} issues={validationState.issues} />
 
+      {/* Mobile Panel Switcher for Touch Viewports */}
+      <div className="workspace-mobile-tabs" role="tablist" aria-label="Editor view selection">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mobileTab === 'both'}
+          className={`workspace-mobile-tab ${mobileTab === 'both' ? 'active' : ''}`}
+          onClick={() => setMobileTab('both')}
+        >
+          Both Views
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mobileTab === 'input'}
+          className={`workspace-mobile-tab ${mobileTab === 'input' ? 'active' : ''}`}
+          onClick={() => setMobileTab('input')}
+        >
+          Input
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mobileTab === 'output'}
+          className={`workspace-mobile-tab ${mobileTab === 'output' ? 'active' : ''}`}
+          onClick={() => setMobileTab('output')}
+        >
+          Beautified Output
+        </button>
+      </div>
+
       <div className="editor-workspace-grid">
-        <div className="editor-panel">
+        <div className={`editor-panel ${mobileTab === 'output' ? 'mobile-panel-hidden' : ''}`}>
           <div className="panel-header">
             <div className="panel-title-group">
               <span>Input ({language.toUpperCase()})</span>
@@ -142,7 +174,7 @@ export function BeautifierWorkspace({
           </div>
         </div>
 
-        <div className="editor-panel">
+        <div className={`editor-panel ${mobileTab === 'input' ? 'mobile-panel-hidden' : ''}`}>
           <div className="panel-header">
             <div className="panel-title-group">
               <span>Output (Beautified)</span>

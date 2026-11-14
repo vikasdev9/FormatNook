@@ -18,6 +18,7 @@ interface TextEditorProps {
   error?: string;
   formatBadge?: string;
   acceptExtensions?: string[];
+  className?: string;
 }
 
 export function TextEditor({
@@ -33,6 +34,7 @@ export function TextEditor({
   error,
   formatBadge,
   acceptExtensions = ['.txt', '.json', '.xml', '.yaml', '.yml', '.csv', '.sql', '.html', '.css', '.js', '.ts', '.md', '.diff'],
+  className,
 }: TextEditorProps) {
   const localRef = useRef<HTMLTextAreaElement>(null);
   const textareaRef = scrollRef || localRef;
@@ -74,7 +76,7 @@ export function TextEditor({
   };
 
   return (
-    <div className={`editor-panel diff-editor-panel ${error ? 'panel-has-error' : ''}`} data-testid={testId || `editor-${id}`}>
+    <div className={`editor-panel diff-editor-panel ${error ? 'panel-has-error' : ''} ${className || ''}`} data-testid={testId || `editor-${id}`}>
       <div className="panel-header">
         <div className="panel-title-group">
           <span className="diff-editor-title">{title}</span>

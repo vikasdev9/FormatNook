@@ -66,3 +66,9 @@ logs/
 tmp/
 temp/
 
+# Agent Configurations & Local Tooling
+.gemini/
+.codex/
+.impeccable/config.local.json
+impeccable.exe
+

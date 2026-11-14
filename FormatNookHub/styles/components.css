@@ -499,3 +499,49 @@
   flex-wrap: wrap;
   gap: 1rem;
 }
+
+/* ==========================================================================
+   Mobile & Coarse Pointer (Touch) Adaptations
+   ========================================================================== */
+@media (pointer: coarse), (max-width: 640px) {
+  .btn {
+    min-height: 44px;
+    padding: 0.625rem 1rem;
+    font-size: 0.875rem;
+  }
+
+  .btn-sm {
+    min-height: 40px;
+    padding: 0.45rem 0.75rem;
+    font-size: 0.8125rem;
+  }
+
+  .btn-xs {
+    min-height: 36px;
+    padding: 0.35rem 0.625rem;
+    font-size: 0.75rem;
+  }
+
+  .btn-icon {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0.625rem;
+  }
+
+  .select-control {
+    min-height: 42px;
+    font-size: 16px; /* Prevents unwanted iOS auto-zoom on select */
+    padding: 0.45rem 0.75rem;
+  }
+}
+
+@media (hover: none) {
+  .btn:active {
+    transform: scale(0.98);
+    opacity: 0.95;
+  }
+
+  .tool-card:active {
+    transform: scale(0.99);
+  }
+}

@@ -121,6 +121,7 @@ export function EncoderDecoderWorkspace({
   const [hexOptions, setHexOptions] = useState<HexFormatOptions>({ uppercase: true, grouping: 'space' });
   const [customFilename, setCustomFilename] = useState(outputFileName);
   const [wrapText, setWrapText] = useState(true);
+  const [mobileTab, setMobileTab] = useState<'both' | 'input' | 'output'>('both');
 
   // Dynamic Image Output Format Switcher states (for Base64 to Image)
   const [imageFormatOptions, setImageFormatOptions] = useState<ImageConversionOptions>({
@@ -610,19 +611,7 @@ export function EncoderDecoderWorkspace({
   return (
     <div className="tool-workspace-container">
       {/* Primary Base64 Developer Suite Tabs */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.35rem',
-          overflowX: 'auto',
-          paddingBottom: '0.5rem',
-          borderBottom: '1px solid #263449',
-          marginBottom: '1rem',
-          scrollbarWidth: 'thin',
-        }}
-        role="tablist"
-      >
+      <div className="workspace-tab-nav" role="tablist">
         <button
           role="tab"
           aria-selected={workbenchTab === 'editor'}
@@ -887,10 +876,41 @@ export function EncoderDecoderWorkspace({
             />
           )}
 
+          {/* Mobile Panel Switcher for Touch Viewports */}
+          <div className="workspace-mobile-tabs" role="tablist" aria-label="Editor panel selection">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mobileTab === 'both'}
+              className={`workspace-mobile-tab ${mobileTab === 'both' ? 'active' : ''}`}
+              onClick={() => setMobileTab('both')}
+            >
+              Both Panels
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mobileTab === 'input'}
+              className={`workspace-mobile-tab ${mobileTab === 'input' ? 'active' : ''}`}
+              onClick={() => setMobileTab('input')}
+            >
+              {isFileInput ? 'File Upload' : 'Input'}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mobileTab === 'output'}
+              className={`workspace-mobile-tab ${mobileTab === 'output' ? 'active' : ''}`}
+              onClick={() => setMobileTab('output')}
+            >
+              Output Result
+            </button>
+          </div>
+
           {/* Workspace Panels */}
           <div className="editor-workspace-grid">
             {/* Left Column: Input (File or Text) */}
-            <div className="editor-panel">
+            <div className={`editor-panel ${mobileTab === 'output' ? 'mobile-panel-hidden' : ''}`}>
               <div className="panel-header">
                 <span className="panel-title-group">
                   {isFileInput ? 'Select or Drop File' : 'Input'}
@@ -945,7 +965,7 @@ export function EncoderDecoderWorkspace({
             </div>
 
             {/* Right Column: Output (Media Preview or Text) */}
-            <div className="editor-panel">
+            <div className={`editor-panel ${mobileTab === 'input' ? 'mobile-panel-hidden' : ''}`}>
               <div className="panel-header">
                 <span className="panel-title-group">
                   {isMediaDecoder ? 'Decoded Media Preview' : 'Output'}

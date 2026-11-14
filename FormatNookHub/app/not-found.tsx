@@ -9,7 +9,7 @@ export default function NotFound() {
         <div className="category-card-icon" style={{ margin: '0 auto 1.5rem', width: '56px', height: '56px' }}>
           <Sparkles size={28} />
         </div>
-        <h1 className="hero-title" style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>
+        <h1 className="hero-title" style={{ marginBottom: '1rem' }}>
           Page Not Found (404)
         </h1>
         <p className="hero-subtitle" style={{ marginBottom: '2rem' }}>

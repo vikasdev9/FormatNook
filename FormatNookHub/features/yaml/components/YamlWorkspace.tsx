@@ -78,6 +78,7 @@ export function YamlWorkspace({ initialMode = 'format' }: YamlWorkspaceProps) {
   const [fontSize, setFontSize] = useState<number>(13);
   const [isFullScreen, setIsFullScreen] = useState<boolean>(false);
   const [panelsRatio, setPanelsRatio] = useState<number>(50);
+  const [mobileTab, setMobileTab] = useState<'both' | 'input' | 'output'>('both');
 
   // Modals
   const [isConverterOpen, setIsConverterOpen] = useState<boolean>(false);
@@ -411,94 +412,126 @@ export function YamlWorkspace({ initialMode = 'format' }: YamlWorkspaceProps) {
 
       {/* Main View Area */}
       {viewMode === 'code' && (
-        <div
-          ref={gridRef}
-          className="editor-workspace-grid json-resizable-grid"
-          data-testid="yaml-code-view"
-          style={
-            {
-              '--panels-left': `${panelsRatio}fr`,
-              '--panels-right': `${100 - panelsRatio}fr`,
-            } as React.CSSProperties
-          }
-        >
-          {/* Input Panel */}
-          <div className="editor-panel" data-testid="yaml-input-panel">
-            <div className="panel-header">
-              <div className="panel-title-group">
-                <span>Original Input (Raw YAML)</span>
-                <span className="panel-stats">
-                  {inputLines.toLocaleString()} {inputLines === 1 ? 'Line' : 'Lines'} &bull; {formatByteSize(inputBytes)}
-                  {documentCount > 1 && ` &bull; ${documentCount} docs`}
-                </span>
-              </div>
-              <div className="panel-actions">
-                <CopyButton text={input} label="Copy" />
-              </div>
-            </div>
-            <div className="panel-body">
-              <CodeEditor
-                value={input}
-                onChange={setInput}
-                language="yaml"
-                placeholder="Paste YAML configuration or multi-document stream here..."
-                useMonaco={useMonaco}
-                fontSize={fontSize}
-                wordWrap={wordWrap}
-                footerLabel="YAML Input"
-              />
-            </div>
+        <>
+          <div className="workspace-mobile-tabs" role="tablist" aria-label="Editor view selection">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mobileTab === 'both'}
+              className={`workspace-mobile-tab ${mobileTab === 'both' ? 'active' : ''}`}
+              onClick={() => setMobileTab('both')}
+            >
+              Both Views
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mobileTab === 'input'}
+              className={`workspace-mobile-tab ${mobileTab === 'input' ? 'active' : ''}`}
+              onClick={() => setMobileTab('input')}
+            >
+              Original Input
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mobileTab === 'output'}
+              className={`workspace-mobile-tab ${mobileTab === 'output' ? 'active' : ''}`}
+              onClick={() => setMobileTab('output')}
+            >
+              Formatted Output
+            </button>
           </div>
 
-          {/* Draggable Resizer Gutter */}
           <div
-            className="splitter-gutter workspace-panels-resizer"
-            role="separator"
-            aria-orientation="vertical"
-            aria-label="Panel size ratio divider"
-            aria-valuenow={panelsRatio}
-            aria-valuemin={20}
-            aria-valuemax={80}
-            tabIndex={0}
-            onPointerDown={handlePointerDownResizer}
-            onKeyDown={handleResizerKeyDown}
-            onDoubleClick={handleResetRatio}
-            title="Drag or use Left/Right arrows to resize panels • Double-click to reset (50/50)"
-            data-testid="panel-resizer"
-          />
-
-          {/* Output Panel */}
-          <div className="editor-panel" data-testid="yaml-output-panel">
-            <div className="panel-header">
-              <div className="panel-title-group">
-                <span>Standardized Output</span>
-                <span className="panel-stats">
-                  {outputLines.toLocaleString()} {outputLines === 1 ? 'Line' : 'Lines'} &bull; {formatByteSize(outputBytes)}
-                </span>
+            ref={gridRef}
+            className="editor-workspace-grid json-resizable-grid"
+            data-testid="yaml-code-view"
+            style={
+              {
+                '--panels-left': `${panelsRatio}fr`,
+                '--panels-right': `${100 - panelsRatio}fr`,
+              } as React.CSSProperties
+            }
+          >
+            {/* Input Panel */}
+            <div className={`editor-panel ${mobileTab === 'output' ? 'mobile-panel-hidden' : ''}`} data-testid="yaml-input-panel">
+              <div className="panel-header">
+                <div className="panel-title-group">
+                  <span>Original Input (Raw YAML)</span>
+                  <span className="panel-stats">
+                    {inputLines.toLocaleString()} {inputLines === 1 ? 'Line' : 'Lines'} &bull; {formatByteSize(inputBytes)}
+                    {documentCount > 1 && ` &bull; ${documentCount} docs`}
+                  </span>
+                </div>
+                <div className="panel-actions">
+                  <CopyButton text={input} label="Copy" />
+                </div>
               </div>
-              <div className="panel-actions">
-                <CopyButton text={output} label="Copy Output" />
-                <DownloadButton
-                  content={output}
-                  fileName={selectedDocIndex === 'all' ? 'formatted.yaml' : `document-${(selectedDocIndex as number) + 1}.yaml`}
-                  mimeType="text/yaml"
+              <div className="panel-body">
+                <CodeEditor
+                  value={input}
+                  onChange={setInput}
+                  language="yaml"
+                  placeholder="Paste YAML configuration or multi-document stream here..."
+                  useMonaco={useMonaco}
+                  fontSize={fontSize}
+                  wordWrap={wordWrap}
+                  footerLabel="YAML Input"
                 />
               </div>
             </div>
-            <div className="panel-body">
-              <CodeEditor
-                value={output}
-                readOnly
-                language="yaml"
-                placeholder="Formatted YAML will appear here..."
-                useMonaco={useMonaco}
-                fontSize={fontSize}
-                wordWrap={wordWrap}
-                footerLabel="Formatted YAML"
-              />
+
+            {/* Draggable Resizer Gutter */}
+            <div
+              className="splitter-gutter workspace-panels-resizer"
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Panel size ratio divider"
+              aria-valuenow={panelsRatio}
+              aria-valuemin={20}
+              aria-valuemax={80}
+              tabIndex={0}
+              onPointerDown={handlePointerDownResizer}
+              onKeyDown={handleResizerKeyDown}
+              onDoubleClick={handleResetRatio}
+              title="Drag or use Left/Right arrows to resize panels • Double-click to reset (50/50)"
+              data-testid="panel-resizer"
+            />
+
+            {/* Output Panel */}
+            <div className={`editor-panel ${mobileTab === 'input' ? 'mobile-panel-hidden' : ''}`} data-testid="yaml-output-panel">
+              <div className="panel-header">
+                <div className="panel-title-group">
+                  <span>Standardized Output</span>
+                  <span className="panel-stats">
+                    {outputLines.toLocaleString()} {outputLines === 1 ? 'Line' : 'Lines'} &bull; {formatByteSize(outputBytes)}
+                  </span>
+                </div>
+                <div className="panel-actions">
+                  <CopyButton text={output} label="Copy Output" />
+                  <DownloadButton
+                    content={output}
+                    fileName={selectedDocIndex === 'all' ? 'formatted.yaml' : `document-${(selectedDocIndex as number) + 1}.yaml`}
+                    mimeType="text/yaml"
+                  />
+                </div>
+              </div>
+              <div className="panel-body">
+                <CodeEditor
+                  value={output}
+                  readOnly
+                  language="yaml"
+                  placeholder="Formatted YAML will appear here..."
+                  useMonaco={useMonaco}
+                  fontSize={fontSize}
+                  wordWrap={wordWrap}
+                  footerLabel="Formatted YAML"
+                />
+              </div>
             </div>
           </div>
-        </div>
+        </>
       )}
 
       {/* Visual Tree View */}

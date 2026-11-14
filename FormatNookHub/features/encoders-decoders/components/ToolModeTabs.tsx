@@ -188,26 +188,10 @@ export function ToolModeTabs({ currentSlug, pairedSlug, pairedName, activeDirect
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem', marginBottom: '1.25rem' }}>
-      {/* Top Row: Mode Switcher (Left) + Industry Format Selector Dropdown (Right) */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '0.75rem',
-        }}
-      >
+      {/* Top Header Controls: Mode Tabs + Industry Quick Select */}
+      <div className="tool-mode-tabs-bar">
         {/* Mode Switcher Tabs */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-          }}
-          role="tablist"
-          aria-label="Encoder / Decoder Mode"
-        >
+        <div className="tool-mode-actions" role="tablist" aria-label="Encoder / Decoder Mode">
           {/* Encoder Mode Button / Link */}
           {isEncode ? (
             <button
@@ -262,7 +246,7 @@ export function ToolModeTabs({ currentSlug, pairedSlug, pairedName, activeDirect
         </div>
 
         {/* Industry-Grade Format Dropdown Selector */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div className="tool-quick-select-wrap">
           <label
             htmlFor="base64-format-select"
             style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}
@@ -279,15 +263,6 @@ export function ToolModeTabs({ currentSlug, pairedSlug, pairedName, activeDirect
                 const target = isEncode ? selected.encodeSlug : selected.decodeSlug;
                 router.push(`/tools/${target}`);
               }
-            }}
-            style={{
-              fontSize: '0.8125rem',
-              padding: '0.35rem 0.75rem',
-              borderRadius: 'var(--radius-md)',
-              backgroundColor: 'var(--bg-secondary)',
-              color: 'var(--text-primary)',
-              borderColor: 'var(--border-subtle)',
-              cursor: 'pointer',
             }}
           >
             <optgroup label="Media & Documents">
@@ -316,19 +291,7 @@ export function ToolModeTabs({ currentSlug, pairedSlug, pairedName, activeDirect
       </div>
 
       {/* Visual Format Ribbon */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.35rem',
-          flexWrap: 'wrap',
-          padding: '0.5rem 0.625rem',
-          backgroundColor: 'var(--bg-secondary)',
-          border: '1px solid var(--border-subtle)',
-          borderRadius: 'var(--radius-md)',
-        }}
-        aria-label="Base64 Format Selection"
-      >
+      <div className="tool-format-ribbon" aria-label="Base64 Format Selection">
         <span
           style={{
             fontSize: '0.75rem',
@@ -337,6 +300,8 @@ export function ToolModeTabs({ currentSlug, pairedSlug, pairedName, activeDirect
             marginRight: '0.35rem',
             textTransform: 'uppercase',
             letterSpacing: '0.04em',
+            whiteSpace: 'nowrap',
+            flexShrink: 0,
           }}
         >
           Formats ({BASE64_FORMAT_ITEMS.length}):

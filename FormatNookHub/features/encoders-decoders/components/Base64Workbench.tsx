@@ -163,19 +163,7 @@ export function Base64Workbench({
   return (
     <div className="tool-workspace-container" style={{ width: '100%' }}>
       {/* Top Primary Navigation Bar */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.35rem',
-          overflowX: 'auto',
-          paddingBottom: '0.5rem',
-          borderBottom: '1px solid #263449',
-          marginBottom: '1rem',
-          scrollbarWidth: 'thin',
-        }}
-        role="tablist"
-      >
+      <div className="workspace-tab-nav" role="tablist">
         <button
           role="tab"
           aria-selected={activeMode === 'encode'}
@@ -289,18 +277,8 @@ export function Base64Workbench({
 
       {/* Submode format switcher for Encode/Decode */}
       {(activeMode === 'encode' || activeMode === 'decode') && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.4rem',
-            overflowX: 'auto',
-            paddingBottom: '0.6rem',
-            marginBottom: '1rem',
-            scrollbarWidth: 'thin',
-          }}
-        >
-          <span style={{ fontSize: '0.75rem', color: '#A6B4C8', marginRight: '0.25rem', whiteSpace: 'nowrap' }}>
+        <div className="workspace-format-submodes">
+          <span style={{ fontSize: '0.75rem', color: '#A6B4C8', marginRight: '0.25rem', whiteSpace: 'nowrap', flexShrink: 0 }}>
             Data Format:
           </span>
 

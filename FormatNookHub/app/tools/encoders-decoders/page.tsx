@@ -148,7 +148,7 @@ export default function EncodersDecodersDirectoryPage() {
                   <div className="tool-card-title">{tool.name}</div>
                   <div className="tool-card-desc">{tool.description}</div>
                   <div className="tool-card-footer">
-                    <span className="badge badge-accent" style={{ fontSize: '0.6875rem' }}>
+                    <span className="badge badge-accent">
                       RECENT
                     </span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'var(--accent-primary)', fontWeight: 500 }}>
@@ -166,7 +166,7 @@ export default function EncodersDecodersDirectoryPage() {
           <div style={{ marginBottom: '1rem' }}>
             <h2 className="section-heading-sm" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <span>Decoder Utilities</span>
-              <span className="badge badge-neutral" style={{ fontSize: '0.75rem' }}>
+              <span className="badge badge-neutral">
                 {decoders.length} Tools
               </span>
             </h2>
@@ -184,7 +184,7 @@ export default function EncodersDecodersDirectoryPage() {
                 <div className="tool-card-title">{tool.name}</div>
                 <div className="tool-card-desc">{tool.description}</div>
                 <div className="tool-card-footer">
-                  <span className="badge badge-success" style={{ fontSize: '0.6875rem' }}>
+                  <span className="badge badge-success">
                     <CheckCircle2 size={12} /> Available
                   </span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'var(--accent-primary)', fontWeight: 500 }}>
@@ -201,7 +201,7 @@ export default function EncodersDecodersDirectoryPage() {
           <div style={{ marginBottom: '1rem' }}>
             <h2 className="section-heading-sm" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <span>Encoder Utilities</span>
-              <span className="badge badge-neutral" style={{ fontSize: '0.75rem' }}>
+              <span className="badge badge-neutral">
                 {encoders.length} Tools
               </span>
             </h2>
@@ -219,7 +219,7 @@ export default function EncodersDecodersDirectoryPage() {
                 <div className="tool-card-title">{tool.name}</div>
                 <div className="tool-card-desc">{tool.description}</div>
                 <div className="tool-card-footer">
-                  <span className="badge badge-success" style={{ fontSize: '0.6875rem' }}>
+                  <span className="badge badge-success">
                     <CheckCircle2 size={12} /> Available
                   </span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'var(--accent-primary)', fontWeight: 500 }}>

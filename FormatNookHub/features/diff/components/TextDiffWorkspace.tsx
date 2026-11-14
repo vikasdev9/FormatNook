@@ -136,6 +136,7 @@ export function TextDiffWorkspace() {
   const [originalText, setOriginalText] = useState<string>(DEFAULT_JSON_ORIGINAL);
   const [modifiedText, setModifiedText] = useState<string>(DEFAULT_JSON_MODIFIED);
   const [options, setOptions] = useState<DiffOptions>(DEFAULT_DIFF_OPTIONS);
+  const [mobileTab, setMobileTab] = useState<'both' | 'original' | 'modified'>('both');
   const [showSettings, setShowSettings] = useState<boolean>(false);
   const [diffResult, setDiffResult] = useState<DiffEngineResult | DiffResultData | null>(null);
   const [isComparing, setIsComparing] = useState<boolean>(false);
@@ -275,6 +276,37 @@ export function TextDiffWorkspace() {
         <DiffSettings options={options} onOptionsChange={setOptions} />
       )}
 
+      {/* Mobile Editor Switcher for Touch Viewports */}
+      <div className="workspace-mobile-tabs" role="tablist" aria-label="Diff editors selection">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mobileTab === 'both'}
+          className={`workspace-mobile-tab ${mobileTab === 'both' ? 'active' : ''}`}
+          onClick={() => setMobileTab('both')}
+        >
+          Both Editors
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mobileTab === 'original'}
+          className={`workspace-mobile-tab ${mobileTab === 'original' ? 'active' : ''}`}
+          onClick={() => setMobileTab('original')}
+        >
+          Original
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mobileTab === 'modified'}
+          className={`workspace-mobile-tab ${mobileTab === 'modified' ? 'active' : ''}`}
+          onClick={() => setMobileTab('modified')}
+        >
+          Modified
+        </button>
+      </div>
+
       {/* Dual Text Editors for Original and Modified Input */}
       <div className="editor-workspace-grid diff-editor-grid">
         <TextEditor
@@ -288,6 +320,7 @@ export function TextDiffWorkspace() {
           testId="editor-original"
           error={originalError}
           acceptExtensions={currentModeConfig.extensions}
+          className={mobileTab === 'modified' ? 'mobile-panel-hidden' : ''}
         />
 
         <TextEditor
@@ -301,6 +334,7 @@ export function TextDiffWorkspace() {
           testId="editor-modified"
           error={modifiedError}
           acceptExtensions={currentModeConfig.extensions}
+          className={mobileTab === 'original' ? 'mobile-panel-hidden' : ''}
         />
       </div>
 

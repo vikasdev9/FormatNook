@@ -19,7 +19,7 @@ export default function PrivacyPage() {
           <h1 className="tool-title" style={{ marginBottom: '0.75rem' }}>
             Privacy Policy
           </h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.9375rem' }}>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
             Last updated: October 2026
           </p>
         </div>
@@ -27,7 +27,7 @@ export default function PrivacyPage() {
         <div className="educational-section" style={{ marginTop: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', color: 'var(--color-success)' }}>
             <Shield size={24} />
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+            <h2 className="section-heading-sm" style={{ margin: 0, color: 'var(--text-primary)' }}>
               100% Client-Side Privacy Guarantee
             </h2>
           </div>
@@ -36,21 +36,21 @@ export default function PrivacyPage() {
             At FormatNook, we believe developer tools should never compromise your code or security. Unlike traditional online utility websites that upload your JSON payloads, SQL queries, or sensitive tokens to remote servers for processing, <strong>FormatNook operates entirely in your local browser sandbox</strong>.
           </p>
 
-          <h3 style={{ fontSize: '1.125rem', fontWeight: 600, color: 'var(--text-primary)', marginTop: '1.5rem', marginBottom: '0.5rem' }}>
+          <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginTop: '1.5rem', marginBottom: '0.5rem' }}>
             1. Zero Server Uploads
           </h3>
           <p className="educational-p">
             When you paste or drag-and-drop code into our formatters, beautifiers, or Base64 converters, the transformations are executed directly by your machine&apos;s CPU using client-side JavaScript. No payload data is ever sent across the network, stored in databases, or logged on our servers.
           </p>
 
-          <h3 style={{ fontSize: '1.125rem', fontWeight: 600, color: 'var(--text-primary)', marginTop: '1.5rem', marginBottom: '0.5rem' }}>
+          <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginTop: '1.5rem', marginBottom: '0.5rem' }}>
             2. Local Storage Usage
           </h3>
           <p className="educational-p">
             To provide features like &quot;Recently Used Tools&quot;, &quot;Favorite Tools&quot;, and theme preferences (Light/Dark mode), we save small string identifiers locally on your device via standard browser <code>localStorage</code>. This data never leaves your computer.
           </p>
 
-          <h3 style={{ fontSize: '1.125rem', fontWeight: 600, color: 'var(--text-primary)', marginTop: '1.5rem', marginBottom: '0.5rem' }}>
+          <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginTop: '1.5rem', marginBottom: '0.5rem' }}>
             3. Advertising & Analytics
           </h3>
           <p className="educational-p">

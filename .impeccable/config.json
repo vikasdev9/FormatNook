@@ -1,0 +1,5 @@
+{
+  "$schema": "https://impeccable.style/schema/config.json",
+  "version": 1,
+  "projectRoots": ["FormatNookHub"]
+}

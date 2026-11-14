@@ -73,6 +73,7 @@ export function XmlWorkspace({ initialMode = 'format' }: XmlWorkspaceProps) {
   const [fontSize, setFontSize] = useState<number>(13);
   const [isFullScreen, setIsFullScreen] = useState<boolean>(false);
   const [panelsRatio, setPanelsRatio] = useState<number>(50);
+  const [mobileTab, setMobileTab] = useState<'both' | 'input' | 'output'>('both');
 
   // Modals
   const [isXPathOpen, setIsXPathOpen] = useState<boolean>(false);
@@ -345,63 +346,94 @@ export function XmlWorkspace({ initialMode = 'format' }: XmlWorkspaceProps) {
 
       {/* Main View Area */}
       {viewMode === 'code' && (
-        <div
-          ref={gridRef}
-          className="editor-workspace-grid json-resizable-grid"
-          data-testid="xml-code-view"
-          style={
-            {
-              '--panels-left': `${panelsRatio}fr`,
-              '--panels-right': `${100 - panelsRatio}fr`,
-            } as React.CSSProperties
-          }
-        >
-          {/* Input Panel */}
-          <div className="editor-panel" data-testid="xml-input-panel">
-            <div className="panel-header">
-              <div className="panel-title-group">
-                <span>Original Input (Raw XML)</span>
-                <span className="panel-stats">
-                  {inputLines.toLocaleString()} {inputLines === 1 ? 'Line' : 'Lines'} &bull; {formatByteSize(inputBytes)}
-                </span>
-              </div>
-              <div className="panel-actions">
-                <CopyButton text={input} label="Copy" />
-              </div>
-            </div>
-            <div className="panel-body">
-              <CodeEditor
-                value={input}
-                onChange={setInput}
-                language="xml"
-                placeholder="Paste XML document here..."
-                useMonaco={useMonaco}
-                fontSize={fontSize}
-                wordWrap={wordWrap}
-                footerLabel="XML Input"
-              />
-            </div>
+        <>
+          <div className="workspace-mobile-tabs" role="tablist" aria-label="Editor view selection">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mobileTab === 'both'}
+              className={`workspace-mobile-tab ${mobileTab === 'both' ? 'active' : ''}`}
+              onClick={() => setMobileTab('both')}
+            >
+              Both Views
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mobileTab === 'input'}
+              className={`workspace-mobile-tab ${mobileTab === 'input' ? 'active' : ''}`}
+              onClick={() => setMobileTab('input')}
+            >
+              Original Input
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mobileTab === 'output'}
+              className={`workspace-mobile-tab ${mobileTab === 'output' ? 'active' : ''}`}
+              onClick={() => setMobileTab('output')}
+            >
+              Formatted Output
+            </button>
           </div>
 
-          {/* Draggable Resizer Gutter */}
           <div
-            className="splitter-gutter workspace-panels-resizer"
-            role="separator"
-            aria-orientation="vertical"
-            aria-label="Panel size ratio divider"
-            aria-valuenow={panelsRatio}
-            aria-valuemin={20}
-            aria-valuemax={80}
-            tabIndex={0}
-            onPointerDown={handlePointerDownResizer}
-            onKeyDown={handleResizerKeyDown}
-            onDoubleClick={handleResetRatio}
-            title="Drag or use Left/Right arrows to resize panels • Double-click to reset (50/50)"
-            data-testid="panel-resizer"
-          />
+            ref={gridRef}
+            className="editor-workspace-grid json-resizable-grid"
+            data-testid="xml-code-view"
+            style={
+              {
+                '--panels-left': `${panelsRatio}fr`,
+                '--panels-right': `${100 - panelsRatio}fr`,
+              } as React.CSSProperties
+            }
+          >
+            {/* Input Panel */}
+            <div className={`editor-panel ${mobileTab === 'output' ? 'mobile-panel-hidden' : ''}`} data-testid="xml-input-panel">
+              <div className="panel-header">
+                <div className="panel-title-group">
+                  <span>Original Input (Raw XML)</span>
+                  <span className="panel-stats">
+                    {inputLines.toLocaleString()} {inputLines === 1 ? 'Line' : 'Lines'} &bull; {formatByteSize(inputBytes)}
+                  </span>
+                </div>
+                <div className="panel-actions">
+                  <CopyButton text={input} label="Copy" />
+                </div>
+              </div>
+              <div className="panel-body">
+                <CodeEditor
+                  value={input}
+                  onChange={setInput}
+                  language="xml"
+                  placeholder="Paste XML document here..."
+                  useMonaco={useMonaco}
+                  fontSize={fontSize}
+                  wordWrap={wordWrap}
+                  footerLabel="XML Input"
+                />
+              </div>
+            </div>
 
-          {/* Output Panel */}
-          <div className="editor-panel" data-testid="xml-output-panel">
+            {/* Draggable Resizer Gutter */}
+            <div
+              className="splitter-gutter workspace-panels-resizer"
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Panel size ratio divider"
+              aria-valuenow={panelsRatio}
+              aria-valuemin={20}
+              aria-valuemax={80}
+              tabIndex={0}
+              onPointerDown={handlePointerDownResizer}
+              onKeyDown={handleResizerKeyDown}
+              onDoubleClick={handleResetRatio}
+              title="Drag or use Left/Right arrows to resize panels • Double-click to reset (50/50)"
+              data-testid="panel-resizer"
+            />
+
+            {/* Output Panel */}
+            <div className={`editor-panel ${mobileTab === 'input' ? 'mobile-panel-hidden' : ''}`} data-testid="xml-output-panel">
             <div className="panel-header">
               <div className="panel-title-group">
                 <span>Formatted Output</span>
@@ -432,6 +464,7 @@ export function XmlWorkspace({ initialMode = 'format' }: XmlWorkspaceProps) {
             </div>
           </div>
         </div>
+        </>
       )}
 
       {/* Visual Tree View */}
