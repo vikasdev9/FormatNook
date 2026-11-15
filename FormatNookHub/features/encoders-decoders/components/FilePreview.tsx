@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Download, Music, FileText, Loader2 } from 'lucide-react';
+import { Download, Music, FileText, Loader2, ZoomIn } from 'lucide-react';
 import { formatFileSize } from '../utils/byte-conversion.utils';
+import { ImagePreviewDialog } from '@/components/workspace/ImagePreviewDialog';
 
 interface FilePreviewProps {
   mediaUrl: string; // Object URL or Data URI
@@ -24,6 +25,7 @@ export function FilePreview({
   isConverting = false,
 }: FilePreviewProps) {
   const [loadError, setLoadError] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   const cleanMime = mimeType.toLowerCase();
   const isImage = cleanMime.startsWith('image/');
@@ -74,14 +76,19 @@ export function FilePreview({
       {isImage && !loadError && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', width: '100%' }}>
           <div
-            style={{
-              maxHeight: '280px',
-              maxWidth: '100%',
-              overflow: 'hidden',
-              borderRadius: 'var(--radius-md)',
-              border: '1px solid var(--border-subtle)',
-              background: 'repeating-conic-gradient(#80808020 0% 25%, transparent 0% 50%) 50% / 16px 16px',
+            role="button"
+            tabIndex={0}
+            onClick={() => setIsPreviewOpen(true)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setIsPreviewOpen(true);
+              }
             }}
+            title="Click to enlarge"
+            aria-label="Open image preview"
+            data-testid="btn-open-preview-dialog"
+            className="preview-thumbnail-wrapper"
           >
             {/* Safe image preview: Using <img> prevents SVG script execution in main DOM */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -89,8 +96,12 @@ export function FilePreview({
               src={mediaUrl}
               alt={fileName}
               onError={() => setLoadError(true)}
-              style={{ maxHeight: '270px', maxWidth: '100%', objectFit: 'contain', display: 'block' }}
+              className="preview-thumbnail-img"
             />
+            <div className="click-to-enlarge-hint" data-testid="click-to-enlarge-hint">
+              <ZoomIn size={12} style={{ color: 'var(--accent-primary, #38BDF8)' }} />
+              <span>Click to enlarge</span>
+            </div>
           </div>
           <div style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', textAlign: 'center' }}>
             <span>{fileName}</span> &bull; <span>{mimeType}</span> &bull; <span>{formatFileSize(fileSize)}</span>
@@ -98,6 +109,13 @@ export function FilePreview({
               <span> &bull; {dimensions.width} &times; {dimensions.height} px</span>
             )}
           </div>
+          <ImagePreviewDialog
+            isOpen={isPreviewOpen}
+            onClose={() => setIsPreviewOpen(false)}
+            imageUrl={mediaUrl}
+            alt={fileName}
+            initialDimensions={dimensions}
+          />
         </div>
       )}
 

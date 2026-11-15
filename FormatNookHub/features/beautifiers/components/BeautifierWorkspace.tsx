@@ -13,6 +13,8 @@ import { CodeEditor } from '@/components/workspace/CodeEditor';
 import { FileDropzone } from '@/components/workspace/FileDropzone';
 import { CopyButton } from '@/components/workspace/CopyButton';
 import { DownloadButton } from '@/components/workspace/DownloadButton';
+import { ShareButton } from '@/components/workspace/ShareButton';
+import { createBeautifierSharePayload } from '../adapters/beautifier-share.adapter';
 import { ResetButton } from '@/components/workspace/ResetButton';
 import { ValidationResult } from '@/components/workspace/ValidationResult';
 import { formatByteSize } from '@/lib/file-reader';
@@ -183,6 +185,10 @@ export function BeautifierWorkspace({
               </span>
             </div>
             <div className="panel-actions">
+              <ShareButton
+                getPayload={() => createBeautifierSharePayload(output, language, outputFileName)}
+                disabled={!output}
+              />
               <CopyButton text={output} label="Copy Output" />
               <DownloadButton
                 content={output}

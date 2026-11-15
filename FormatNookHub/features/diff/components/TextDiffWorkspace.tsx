@@ -268,6 +268,7 @@ export function TextDiffWorkspace() {
         showSettings={showSettings}
         onToggleSettings={() => setShowSettings((prev) => !prev)}
         unifiedDiffText={diffResult?.unifiedDiffText ?? ''}
+        diffResult={diffResult}
         isComparing={isComparing}
       />
 

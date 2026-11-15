@@ -26,6 +26,11 @@ import {
 } from '../services/base64-repair.service';
 import { base64ToBytes } from '../services/base64.service';
 import { CopyButton } from '@/components/workspace/CopyButton';
+import { ShareButton } from '@/components/workspace/ShareButton';
+import { createBase64RepairSharePayload } from '../adapters/base64-repair-share.adapter';
+import { Base64RepairImagePreview } from './Base64RepairImagePreview';
+import { Base64RepairErrorsCard } from './Base64RepairErrorsCard';
+import { Base64RepairSummaryCard } from './Base64RepairSummaryCard';
 import { downloadFile } from '@/lib/download';
 
 interface Base64RepairViewProps {
@@ -464,6 +469,10 @@ export function Base64RepairView({
               )}
             </div>
             <div className="panel-actions" style={{ display: 'flex', gap: '0.4rem' }}>
+              <ShareButton
+                getPayload={() => createBase64RepairSharePayload(result, activeCandidate)}
+                disabled={!currentPayloadToUse}
+              />
               <CopyButton text={currentPayloadToUse} label="Copy Repaired" />
               <button
                 type="button"
@@ -500,73 +509,16 @@ export function Base64RepairView({
                 wordBreak: 'break-all',
                 overflowWrap: 'anywhere',
                 overflowY: 'auto',
-                minHeight: '160px',
-                flex: previewBlobUrl ? '0 0 160px' : '1',
+                minHeight: '260px',
+                flex: 1,
               }}
             />
-
-            {/* Live Repaired Image Preview Card */}
-            {previewBlobUrl && activeCandidate && (
-              <div
-                style={{
-                  borderTop: '1px solid #263449',
-                  padding: '0.75rem 1rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '1rem',
-                  backgroundColor: '#0F172A',
-                }}
-              >
-                <div
-                  style={{
-                    width: '64px',
-                    height: '64px',
-                    borderRadius: '4px',
-                    border: '1px solid #334155',
-                    overflow: 'hidden',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    backgroundColor: '#1E293B',
-                    flexShrink: 0,
-                  }}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={previewBlobUrl}
-                    alt="Decoded Repaired Preview"
-                    style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
-                  />
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', fontSize: '0.8125rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <span style={{ fontWeight: 600, color: '#F8FAFC' }}>
-                      {activeCandidate.detectedFormat || 'Image'} Decoded Successfully
-                    </span>
-                    <span className="badge badge-success" style={{ fontSize: '0.7rem' }}>
-                      {activeCandidate.detectedMimeType}
-                    </span>
-                  </div>
-                  <div style={{ color: '#94A3B8', fontSize: '0.75rem' }}>
-                    {activeCandidate.imageDimensions && (
-                      <span>
-                        Dimensions: {activeCandidate.imageDimensions.width} ×{' '}
-                        {activeCandidate.imageDimensions.height} px
-                        {activeCandidate.imageDimensions.aspectRatio
-                          ? ` (${activeCandidate.imageDimensions.aspectRatio})`
-                          : ''}{' '}
-                        ·{' '}
-                      </span>
-                    )}
-                    <span>Size: {activeCandidate.decodedByteLength} bytes</span>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </div>
+
+      {/* Decoded Image Preview (Independent Section Below Editor) */}
+      <Base64RepairImagePreview candidate={activeCandidate} blobUrl={previewBlobUrl} />
 
       {/* Comparison View (when enabled) */}
       {compareMode && result && (
@@ -627,105 +579,11 @@ export function Base64RepairView({
         </div>
       )}
 
-      {/* Transformation Log, Warnings & Diagnostics */}
-      {result && (
-        <div
-          style={{
-            backgroundColor: '#151F31',
-            border: '1px solid #263449',
-            borderRadius: '8px',
-            padding: '1rem',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '0.75rem',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#F8FAFC' }}>
-              Repair Transformations Summary ({activeCandidate?.transformations.length || 0} applied)
-            </span>
-            <span
-              className={`badge ${
-                activeCandidate?.isDecodable ? 'badge-success' : 'badge-warning'
-              }`}
-            >
-              {activeCandidate?.isDecodable ? 'Successfully Decodable' : 'Attention Needed'}
-            </span>
-          </div>
+      {/* Detected Errors & Malformations Card */}
+      <Base64RepairErrorsCard candidate={activeCandidate} rawInput={input} />
 
-          {activeCandidate && activeCandidate.transformations.length > 0 ? (
-            <ul style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.8125rem', color: '#A6B4C8' }}>
-              {activeCandidate.transformations.map((t, idx) => (
-                <li key={idx} style={{ marginTop: '0.2rem' }}>
-                  {t}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div style={{ fontSize: '0.8125rem', color: '#A6B4C8' }}>
-              No transformations needed. The string was already normalized under active options.
-            </div>
-          )}
-
-          {activeCandidate && activeCandidate.removedCharCount > 0 && (
-            <div
-              style={{
-                fontSize: '0.75rem',
-                color: 'var(--color-warning)',
-                backgroundColor: 'rgba(245, 158, 11, 0.08)',
-                padding: '0.5rem 0.75rem',
-                borderRadius: '4px',
-                border: '1px solid rgba(245, 158, 11, 0.2)',
-              }}
-            >
-              <strong>Advanced Character Stripping:</strong> {activeCandidate.removedCharCount} non-Base64
-              characters removed.{' '}
-              {activeCandidate.removedCharsDetails &&
-                activeCandidate.removedCharsDetails.map((d) => `'${d.char}' (×${d.count})`).join(', ')}
-            </div>
-          )}
-
-          {activeCandidate && activeCandidate.warnings.length > 0 && (
-            <div style={{ marginTop: '0.25rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-              {activeCandidate.warnings.map((w, idx) => (
-                <div
-                  key={idx}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    fontSize: '0.75rem',
-                    color: 'var(--color-warning)',
-                  }}
-                >
-                  <AlertTriangle size={14} />
-                  <span>{w}</span>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {activeCandidate && activeCandidate.errors.length > 0 && (
-            <div style={{ marginTop: '0.25rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-              {activeCandidate.errors.map((err, idx) => (
-                <div
-                  key={idx}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    fontSize: '0.75rem',
-                    color: 'var(--color-error)',
-                  }}
-                >
-                  <AlertCircle size={14} />
-                  <span>{err}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      {/* Transformation Log & Repair Summary Card */}
+      <Base64RepairSummaryCard result={result} candidate={activeCandidate} />
     </div>
   );
 }

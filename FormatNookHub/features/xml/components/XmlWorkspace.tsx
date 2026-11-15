@@ -15,6 +15,8 @@ import { parseXmlToTree } from '../services/xml-parser-service';
 import { CodeEditor, countLogicalLines } from '@/components/workspace/CodeEditor';
 import { CopyButton } from '@/components/workspace/CopyButton';
 import { DownloadButton } from '@/components/workspace/DownloadButton';
+import { ShareButton } from '@/components/workspace/ShareButton';
+import { createXmlSharePayload } from '../adapters/xml-share.adapter';
 import { ValidationResult } from '@/components/workspace/ValidationResult';
 import { formatByteSize } from '@/lib/file-reader';
 
@@ -442,6 +444,10 @@ export function XmlWorkspace({ initialMode = 'format' }: XmlWorkspaceProps) {
                 </span>
               </div>
               <div className="panel-actions">
+                <ShareButton
+                  getPayload={() => createXmlSharePayload(output)}
+                  disabled={!output}
+                />
                 <CopyButton text={output} label="Copy Output" />
                 <DownloadButton
                   content={output}

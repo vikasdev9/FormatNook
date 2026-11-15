@@ -14,9 +14,11 @@ import {
   Sparkles,
   Loader2,
 } from 'lucide-react';
-import { DiffFormat, DiffOptions, DiffViewMode } from '../types/diff.types';
+import { DiffFormat, DiffOptions, DiffViewMode, DiffResultData } from '../types/diff.types';
 import { useClipboard } from '@/hooks/useClipboard';
 import { downloadFile } from '@/lib/download';
+import { ShareButton } from '@/components/workspace/ShareButton';
+import { createDiffSharePayload } from '../adapters/diff-share.adapter';
 
 interface DiffToolbarProps {
   onCompare: () => void;
@@ -29,6 +31,7 @@ interface DiffToolbarProps {
   onToggleSettings: () => void;
   unifiedDiffText: string;
   isComparing?: boolean;
+  diffResult?: DiffResultData | null;
 }
 
 export const COMPARISON_MODES: { id: DiffFormat; label: string; shortLabel: string }[] = [
@@ -56,6 +59,7 @@ export function DiffToolbar({
   onToggleSettings,
   unifiedDiffText,
   isComparing = false,
+  diffResult,
 }: DiffToolbarProps) {
   const { copied, copy } = useClipboard();
 
@@ -207,6 +211,11 @@ export function DiffToolbar({
             <SlidersHorizontal size={14} />
             <span>Settings</span>
           </button>
+
+          <ShareButton
+            getPayload={() => createDiffSharePayload(diffResult || null, options)}
+            disabled={!unifiedDiffText}
+          />
 
           <button
             type="button"

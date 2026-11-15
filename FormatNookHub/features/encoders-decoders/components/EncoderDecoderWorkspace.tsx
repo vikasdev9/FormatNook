@@ -27,6 +27,8 @@ import { buildVideoDetails } from '../adapters/video-details.adapter';
 import { downloadFile } from '@/lib/download';
 import { CopyButton } from '@/components/workspace/CopyButton';
 import { DownloadButton } from '@/components/workspace/DownloadButton';
+import { ShareButton } from '@/components/workspace/ShareButton';
+import { createDecoderSharePayload } from '../adapters/base64-decoder-share.adapter';
 import { ResetButton } from '@/components/workspace/ResetButton';
 import { FileUploadZone } from './FileUploadZone';
 import { FileMetadata } from './FileMetadata';
@@ -981,6 +983,23 @@ export function EncoderDecoderWorkspace({
                   {isMediaDecoder ? 'Decoded Media Preview' : 'Output'}
                 </span>
                 <div className="panel-actions">
+                  <ShareButton
+                    getPayload={() =>
+                      createDecoderSharePayload({
+                        toolId,
+                        isMediaDecoder,
+                        convertedImage,
+                        decodedBlob,
+                        parsedSourceImage,
+                        outputString,
+                        textInput,
+                        detectedMime,
+                        customFilename,
+                        outputFileName,
+                      })
+                    }
+                    disabled={!outputString && !decodedBlob && !convertedImage}
+                  />
                   {!isMediaDecoder && (
                     <>
                       <button

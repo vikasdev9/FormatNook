@@ -16,6 +16,8 @@ import { parseYamlToTree, updateYamlValueAtPath } from '../services/yaml-parser-
 import { CodeEditor, countLogicalLines } from '@/components/workspace/CodeEditor';
 import { CopyButton } from '@/components/workspace/CopyButton';
 import { DownloadButton } from '@/components/workspace/DownloadButton';
+import { ShareButton } from '@/components/workspace/ShareButton';
+import { createYamlSharePayload } from '../adapters/yaml-share.adapter';
 import { ValidationResult } from '@/components/workspace/ValidationResult';
 import { formatByteSize } from '@/lib/file-reader';
 
@@ -509,6 +511,10 @@ export function YamlWorkspace({ initialMode = 'format' }: YamlWorkspaceProps) {
                   </span>
                 </div>
                 <div className="panel-actions">
+                  <ShareButton
+                    getPayload={() => createYamlSharePayload(output, documentCount)}
+                    disabled={!output}
+                  />
                   <CopyButton text={output} label="Copy Output" />
                   <DownloadButton
                     content={output}

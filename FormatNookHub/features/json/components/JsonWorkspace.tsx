@@ -40,6 +40,8 @@ import { JsonViewMode } from '../types/json.types';
 import { CodeEditor, CodeEditorActions, countLogicalLines } from '@/components/workspace/CodeEditor';
 import { CopyButton } from '@/components/workspace/CopyButton';
 import { DownloadButton } from '@/components/workspace/DownloadButton';
+import { ShareButton } from '@/components/workspace/ShareButton';
+import { createJsonSharePayload } from '../adapters/json-share.adapter';
 import { ValidationResult } from '@/components/workspace/ValidationResult';
 import { formatByteSize } from '@/lib/file-reader';
 
@@ -1098,6 +1100,10 @@ export function JsonWorkspace({ initialMode = 'format' }: JsonWorkspaceProps) {
                   )}
                 </div>
                 <div className="panel-actions">
+                  <ShareButton
+                    getPayload={() => createJsonSharePayload(output)}
+                    disabled={!output}
+                  />
                   <CopyButton text={output} label="Copy Output" />
                   <DownloadButton
                     content={output}
