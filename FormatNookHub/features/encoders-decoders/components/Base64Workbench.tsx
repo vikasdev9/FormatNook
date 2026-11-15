@@ -416,6 +416,7 @@ export function Base64Workbench({
         <Base64RepairView
           initialPayload={sharedPayload}
           onSendToDecode={handleSendToDecode}
+          onBackToDecoder={() => setActiveMode('decode')}
         />
       )}
 

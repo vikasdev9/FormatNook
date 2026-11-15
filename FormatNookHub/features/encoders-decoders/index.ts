@@ -1,5 +1,6 @@
 export * from './types/encoder-decoder.types';
 export * from './types/file-metadata.types';
+export * from './types/base64-repair.types';
 export * from './services/base64.service';
 export * from './services/text-encoding.service';
 export * from './services/file-encoding.service';

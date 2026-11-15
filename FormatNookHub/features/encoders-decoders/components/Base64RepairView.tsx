@@ -1,20 +1,48 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { Wrench, CheckCircle2, AlertTriangle, Copy, Download, RefreshCw, ArrowRight } from 'lucide-react';
-import { repairBase64, Base64RepairOptions, DEFAULT_REPAIR_OPTIONS } from '../services/base64-repair.service';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import {
+  Wrench,
+  CheckCircle2,
+  AlertTriangle,
+  AlertCircle,
+  Copy,
+  Download,
+  RefreshCw,
+  ArrowRight,
+  ArrowLeft,
+  Image as ImageIcon,
+  ShieldAlert,
+  Sparkles,
+  Layers,
+  Split,
+  Eye,
+} from 'lucide-react';
+import {
+  repairBase64,
+  Base64RepairOptions,
+  Base64RepairCandidate,
+  DEFAULT_REPAIR_OPTIONS,
+} from '../services/base64-repair.service';
+import { base64ToBytes } from '../services/base64.service';
 import { CopyButton } from '@/components/workspace/CopyButton';
 import { downloadFile } from '@/lib/download';
 
 interface Base64RepairViewProps {
   initialPayload?: string;
   onSendToDecode?: (payload: string) => void;
+  onBackToDecoder?: () => void;
 }
 
 const SAMPLE_REPAIR_INPUTS = [
   {
+    name: 'JSON with Image Field',
+    value: `{\n  "banner_image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",\n  "other_field": "some other value"\n}`,
+  },
+  {
     name: 'Embedded Newlines & Data URI',
-    value: 'data:image/png;base64,\niVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk\n+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+    value:
+      'data:image/png;base64,\niVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk\n+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
   },
   {
     name: 'Missing Padding (=)',
@@ -30,22 +58,169 @@ const SAMPLE_REPAIR_INPUTS = [
   },
 ];
 
-export function Base64RepairView({ initialPayload = '', onSendToDecode }: Base64RepairViewProps) {
+export function Base64RepairView({
+  initialPayload = '',
+  onSendToDecode,
+  onBackToDecoder,
+}: Base64RepairViewProps) {
   const [input, setInput] = useState<string>(initialPayload);
   const [options, setOptions] = useState<Base64RepairOptions>({ ...DEFAULT_REPAIR_OPTIONS });
+  const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
+  const [compareMode, setCompareMode] = useState<boolean>(false);
+  const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
 
+  // Sync if initialPayload changes
+  useEffect(() => {
+    if (initialPayload) {
+      setInput(initialPayload);
+    }
+  }, [initialPayload]);
+
+  // Compute repair result
   const result = useMemo(() => {
     if (!input) return null;
     return repairBase64(input, options);
   }, [input, options]);
 
+  // Default active candidate
+  const activeCandidate: Base64RepairCandidate | null = useMemo(() => {
+    if (!result || result.extractedCandidates.length === 0) return null;
+    if (selectedCandidateId) {
+      const match = result.extractedCandidates.find((c) => c.id === selectedCandidateId);
+      if (match) return match;
+    }
+    // Return selected candidate from result orchestrator
+    if (result.selectedCandidateId) {
+      const match = result.extractedCandidates.find((c) => c.id === result.selectedCandidateId);
+      if (match) return match;
+    }
+    return result.extractedCandidates[0];
+  }, [result, selectedCandidateId]);
+
+  // Live image preview generation from decoded bytes
+  const activeObjectUrls = useRef<string[]>([]);
+  useEffect(() => {
+    // Revoke previous URLs
+    activeObjectUrls.current.forEach((url) => {
+      try {
+        URL.revokeObjectURL(url);
+      } catch {
+        // ignore
+      }
+    });
+    activeObjectUrls.current = [];
+
+    if (activeCandidate && activeCandidate.isImageValid && activeCandidate.repairedPayload) {
+      const byteResult = base64ToBytes(activeCandidate.repairedPayload);
+      if (byteResult.isValid && byteResult.bytes.length > 0) {
+        const mime = activeCandidate.detectedMimeType || 'image/png';
+        const blob = new Blob([byteResult.bytes as unknown as BlobPart], { type: mime });
+        const url = URL.createObjectURL(blob);
+        activeObjectUrls.current.push(url);
+        setPreviewBlobUrl(url);
+        return;
+      }
+    }
+    setPreviewBlobUrl(null);
+  }, [activeCandidate]);
+
+  useEffect(() => {
+    return () => {
+      activeObjectUrls.current.forEach((url) => {
+        try {
+          URL.revokeObjectURL(url);
+        } catch {
+          // ignore
+        }
+      });
+      activeObjectUrls.current = [];
+    };
+  }, []);
+
   const handleDownload = () => {
-    if (!result || !result.repairedOutput) return;
-    downloadFile(result.repairedOutput, 'repaired-base64.txt', 'text/plain');
+    const payload = activeCandidate?.repairedPayload || result?.repairedOutput;
+    if (!payload) return;
+    downloadFile(payload, 'repaired-base64.txt', 'text/plain');
   };
+
+  const handleUseRepaired = () => {
+    const payload = activeCandidate?.repairedPayload || result?.repairedOutput;
+    if (payload && onSendToDecode) {
+      onSendToDecode(payload);
+    }
+  };
+
+  const currentPayloadToUse = activeCandidate?.repairedPayload || result?.repairedOutput || '';
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', width: '100%' }}>
+      {/* Top Banner Navigation & Actions */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '0.75rem',
+          backgroundColor: '#151F31',
+          border: '1px solid #263449',
+          borderRadius: '8px',
+          padding: '0.75rem 1rem',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          {onBackToDecoder && (
+            <button
+              type="button"
+              className="btn btn-sm btn-ghost"
+              onClick={onBackToDecoder}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+            >
+              <ArrowLeft size={14} />
+              <span>Back to Decoder</span>
+            </button>
+          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#F8FAFC' }}>
+              Base64 Repair & Normalization Engine
+            </span>
+            {result && (
+              <span
+                className="badge badge-accent"
+                style={{ fontSize: '0.75rem', textTransform: 'uppercase' }}
+              >
+                Format: {result.inputFormat.replace('_', ' ')}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <button
+            type="button"
+            className={`btn btn-sm ${compareMode ? 'btn-primary' : 'btn-ghost'}`}
+            onClick={() => setCompareMode(!compareMode)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+          >
+            <Split size={14} />
+            <span>Compare Input vs Repaired</span>
+          </button>
+
+          {onSendToDecode && currentPayloadToUse && (
+            <button
+              type="button"
+              className="btn btn-sm btn-primary"
+              onClick={handleUseRepaired}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+              title="Return repaired Base64 to Image Decoder and preview"
+            >
+              <ArrowRight size={14} />
+              <span>Use Repaired Base64</span>
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* Repair Configuration Options Toolbar */}
       <div
         style={{
@@ -58,8 +233,36 @@ export function Base64RepairView({ initialPayload = '', onSendToDecode }: Base64
           gap: '0.75rem',
         }}
       >
-        <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#F8FAFC' }}>
-          Safe Normalization & Repair Rules:
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#F8FAFC' }}>
+              Repair Mode:
+            </span>
+            <div style={{ display: 'flex', gap: '0.25rem' }}>
+              <button
+                type="button"
+                className={`btn btn-xs ${options.mode === 'safe' ? 'btn-primary' : 'btn-ghost'}`}
+                onClick={() => setOptions({ ...options, mode: 'safe', stripInvalidChars: false })}
+                style={{ fontSize: '0.75rem', padding: '0.2rem 0.6rem' }}
+              >
+                Safe Normalization (Lossless)
+              </button>
+              <button
+                type="button"
+                className={`btn btn-xs ${options.mode === 'advanced' ? 'btn-primary' : 'btn-ghost'}`}
+                onClick={() => setOptions({ ...options, mode: 'advanced', stripInvalidChars: true })}
+                style={{ fontSize: '0.75rem', padding: '0.2rem 0.6rem' }}
+              >
+                Advanced Repair (Aggressive)
+              </button>
+            </div>
+          </div>
+
+          <div style={{ fontSize: '0.75rem', color: options.mode === 'advanced' ? 'var(--color-warning)' : '#A6B4C8' }}>
+            {options.mode === 'advanced'
+              ? 'Advanced mode strips invalid foreign characters from corrupted payloads.'
+              : 'Safe mode preserves raw characters and only fixes whitespace, headers, and padding.'}
+          </div>
         </div>
 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', fontSize: '0.8125rem', color: '#A6B4C8' }}>
@@ -105,14 +308,24 @@ export function Base64RepairView({ initialPayload = '', onSendToDecode }: Base64
             <span>Convert URL-Safe (- _) to Standard (+ /)</span>
           </label>
 
-          <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', color: options.stripInvalidChars ? '#EF4444' : undefined }}>
-            <input
-              type="checkbox"
-              checked={options.stripInvalidChars}
-              onChange={(e) => setOptions({ ...options, stripInvalidChars: e.target.checked })}
-            />
-            <span>Strip Invalid Non-Alphabet Characters</span>
-          </label>
+          {options.mode === 'advanced' && (
+            <label
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                cursor: 'pointer',
+                color: '#EF4444',
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={options.stripInvalidChars}
+                onChange={(e) => setOptions({ ...options, stripInvalidChars: e.target.checked })}
+              />
+              <span>Strip Non-Alphabet Characters</span>
+            </label>
+          )}
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             <span>Line Wrapping:</span>
@@ -130,12 +343,67 @@ export function Base64RepairView({ initialPayload = '', onSendToDecode }: Base64
         </div>
       </div>
 
-      {/* Editor Grid: Left = Original, Right = Repaired */}
+      {/* Multiple Candidate Extraction Selector */}
+      {result && result.extractedCandidates.length > 1 && (
+        <div
+          style={{
+            backgroundColor: '#151F31',
+            border: '1px solid #263449',
+            borderRadius: '8px',
+            padding: '0.75rem 1rem',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.5rem',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Layers size={14} style={{ color: 'var(--accent-primary)' }} />
+            <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#F8FAFC' }}>
+              Extracted Base64 Candidates ({result.extractedCandidates.length} found):
+            </span>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+            {result.extractedCandidates.map((cand) => {
+              const isSelected = activeCandidate?.id === cand.id;
+              return (
+                <button
+                  key={cand.id}
+                  type="button"
+                  className={`btn btn-sm ${isSelected ? 'btn-primary' : 'btn-ghost'}`}
+                  onClick={() => setSelectedCandidateId(cand.id)}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    fontSize: '0.8125rem',
+                  }}
+                >
+                  {cand.isImageValid ? <ImageIcon size={13} /> : <Wrench size={13} />}
+                  <span>
+                    {cand.propertyName ? `"${cand.propertyName}"` : cand.id}
+                    {cand.detectedFormat ? ` (${cand.detectedFormat})` : ''}
+                    {cand.decodedByteLength > 0 ? ` · ${cand.decodedByteLength} bytes` : ''}
+                  </span>
+                  {cand.confidence === 'high' && (
+                    <span className="badge badge-success" style={{ fontSize: '0.65rem', padding: '0.1rem 0.3rem' }}>
+                      Image
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Editor Grid: Left = Original, Right = Repaired & Preview */}
       <div className="editor-workspace-grid">
         {/* Left Column: Original Input */}
         <div className="editor-panel">
           <div className="panel-header">
-            <span className="panel-title-group">Original Base64 Input</span>
+            <span className="panel-title-group">
+              Original Base64 Input ({input.length} chars)
+            </span>
             <div className="panel-actions" style={{ display: 'flex', gap: '0.4rem' }}>
               {SAMPLE_REPAIR_INPUTS.map((sample) => (
                 <button
@@ -143,6 +411,7 @@ export function Base64RepairView({ initialPayload = '', onSendToDecode }: Base64
                   type="button"
                   className="btn btn-sm btn-ghost"
                   onClick={() => setInput(sample.value)}
+                  style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
                 >
                   {sample.name}
                 </button>
@@ -155,63 +424,210 @@ export function Base64RepairView({ initialPayload = '', onSendToDecode }: Base64
               className="editor-textarea wrap-text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Paste malformed, unpadded, or whitespace-polluted Base64 here..."
+              placeholder="Paste malformed, unpadded, JSON, or whitespace-polluted Base64 here..."
               spellCheck="false"
               style={{
                 whiteSpace: 'pre-wrap',
                 wordBreak: 'break-all',
                 overflowWrap: 'anywhere',
                 overflowY: 'auto',
+                minHeight: '260px',
               }}
             />
           </div>
         </div>
 
-        {/* Right Column: Repaired Output */}
+        {/* Right Column: Repaired Output & Live Preview */}
         <div className="editor-panel">
           <div className="panel-header">
-            <span className="panel-title-group">Repaired & Normalized Output</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span className="panel-title-group">
+                Repaired Output ({currentPayloadToUse.length} chars)
+              </span>
+              {activeCandidate && (
+                <span
+                  className={`badge ${
+                    activeCandidate.isImageValid
+                      ? 'badge-success'
+                      : activeCandidate.isBase64Valid
+                      ? 'badge-info'
+                      : 'badge-warning'
+                  }`}
+                  style={{ fontSize: '0.7rem' }}
+                >
+                  {activeCandidate.isImageValid
+                    ? `Valid ${activeCandidate.detectedFormat || 'Image'}`
+                    : activeCandidate.isBase64Valid
+                    ? 'Valid Base64'
+                    : 'Corrupted'}
+                </span>
+              )}
+            </div>
             <div className="panel-actions" style={{ display: 'flex', gap: '0.4rem' }}>
-              <CopyButton text={result?.repairedOutput || ''} label="Copy Repaired" />
+              <CopyButton text={currentPayloadToUse} label="Copy Repaired" />
               <button
                 type="button"
                 className="btn btn-sm btn-ghost"
                 onClick={handleDownload}
-                disabled={!result?.repairedOutput}
+                disabled={!currentPayloadToUse}
+                style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
               >
-                <Download size={14} />
+                <Download size={13} />
                 <span>Download</span>
               </button>
-              {onSendToDecode && result?.repairedOutput && (
+              {onSendToDecode && currentPayloadToUse && (
                 <button
                   type="button"
                   className="btn btn-sm btn-primary"
-                  onClick={() => onSendToDecode(result.repairedOutput)}
+                  onClick={handleUseRepaired}
+                  style={{ fontSize: '0.75rem', padding: '0.2rem 0.6rem' }}
                 >
-                  <ArrowRight size={14} />
-                  <span>Decode</span>
+                  <ArrowRight size={13} />
+                  <span>Use Repaired</span>
                 </button>
               )}
             </div>
           </div>
-          <div className="panel-body">
+
+          <div className="panel-body" style={{ display: 'flex', flexDirection: 'column' }}>
             <textarea
               className="editor-textarea wrap-text"
               readOnly
-              value={result?.repairedOutput || ''}
+              value={currentPayloadToUse}
               placeholder="Repaired output will appear here..."
               style={{
                 whiteSpace: 'pre-wrap',
                 wordBreak: 'break-all',
                 overflowWrap: 'anywhere',
                 overflowY: 'auto',
+                minHeight: '160px',
+                flex: previewBlobUrl ? '0 0 160px' : '1',
               }}
             />
+
+            {/* Live Repaired Image Preview Card */}
+            {previewBlobUrl && activeCandidate && (
+              <div
+                style={{
+                  borderTop: '1px solid #263449',
+                  padding: '0.75rem 1rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '1rem',
+                  backgroundColor: '#0F172A',
+                }}
+              >
+                <div
+                  style={{
+                    width: '64px',
+                    height: '64px',
+                    borderRadius: '4px',
+                    border: '1px solid #334155',
+                    overflow: 'hidden',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: '#1E293B',
+                    flexShrink: 0,
+                  }}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={previewBlobUrl}
+                    alt="Decoded Repaired Preview"
+                    style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', fontSize: '0.8125rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span style={{ fontWeight: 600, color: '#F8FAFC' }}>
+                      {activeCandidate.detectedFormat || 'Image'} Decoded Successfully
+                    </span>
+                    <span className="badge badge-success" style={{ fontSize: '0.7rem' }}>
+                      {activeCandidate.detectedMimeType}
+                    </span>
+                  </div>
+                  <div style={{ color: '#94A3B8', fontSize: '0.75rem' }}>
+                    {activeCandidate.imageDimensions && (
+                      <span>
+                        Dimensions: {activeCandidate.imageDimensions.width} ×{' '}
+                        {activeCandidate.imageDimensions.height} px
+                        {activeCandidate.imageDimensions.aspectRatio
+                          ? ` (${activeCandidate.imageDimensions.aspectRatio})`
+                          : ''}{' '}
+                        ·{' '}
+                      </span>
+                    )}
+                    <span>Size: {activeCandidate.decodedByteLength} bytes</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Transformation Log & Warnings */}
+      {/* Comparison View (when enabled) */}
+      {compareMode && result && (
+        <div
+          style={{
+            backgroundColor: '#151F31',
+            border: '1px solid #263449',
+            borderRadius: '8px',
+            padding: '1rem',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.5rem',
+          }}
+        >
+          <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#F8FAFC' }}>
+            Original vs Repaired Comparison
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', fontSize: '0.75rem' }}>
+            <div>
+              <div style={{ color: '#94A3B8', marginBottom: '0.25rem' }}>
+                Original Length: {result.originalLength} chars
+              </div>
+              <div
+                style={{
+                  backgroundColor: '#0F172A',
+                  padding: '0.5rem',
+                  borderRadius: '4px',
+                  maxHeight: '120px',
+                  overflowY: 'auto',
+                  wordBreak: 'break-all',
+                  fontFamily: 'monospace',
+                }}
+              >
+                {result.originalInput}
+              </div>
+            </div>
+            <div>
+              <div style={{ color: '#94A3B8', marginBottom: '0.25rem' }}>
+                Repaired Length: {result.repairedLength} chars (Delta:{' '}
+                {result.repairedLength - result.originalLength} chars)
+              </div>
+              <div
+                style={{
+                  backgroundColor: '#0F172A',
+                  padding: '0.5rem',
+                  borderRadius: '4px',
+                  maxHeight: '120px',
+                  overflowY: 'auto',
+                  wordBreak: 'break-all',
+                  fontFamily: 'monospace',
+                  color: 'var(--color-success)',
+                }}
+              >
+                {currentPayloadToUse}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Transformation Log, Warnings & Diagnostics */}
       {result && (
         <div
           style={{
@@ -226,18 +642,20 @@ export function Base64RepairView({ initialPayload = '', onSendToDecode }: Base64
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#F8FAFC' }}>
-              Repair Transformations Summary ({result.transformations.length} applied)
+              Repair Transformations Summary ({activeCandidate?.transformations.length || 0} applied)
             </span>
             <span
-              className={`badge ${result.isSuccessfullyDecodable ? 'badge-success' : 'badge-warning'}`}
+              className={`badge ${
+                activeCandidate?.isDecodable ? 'badge-success' : 'badge-warning'
+              }`}
             >
-              {result.isSuccessfullyDecodable ? 'Successfully Decodable' : 'Attention Needed'}
+              {activeCandidate?.isDecodable ? 'Successfully Decodable' : 'Attention Needed'}
             </span>
           </div>
 
-          {result.transformations.length > 0 ? (
+          {activeCandidate && activeCandidate.transformations.length > 0 ? (
             <ul style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.8125rem', color: '#A6B4C8' }}>
-              {result.transformations.map((t, idx) => (
+              {activeCandidate.transformations.map((t, idx) => (
                 <li key={idx} style={{ marginTop: '0.2rem' }}>
                   {t}
                 </li>
@@ -249,9 +667,27 @@ export function Base64RepairView({ initialPayload = '', onSendToDecode }: Base64
             </div>
           )}
 
-          {result.warnings.length > 0 && (
-            <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-              {result.warnings.map((w, idx) => (
+          {activeCandidate && activeCandidate.removedCharCount > 0 && (
+            <div
+              style={{
+                fontSize: '0.75rem',
+                color: 'var(--color-warning)',
+                backgroundColor: 'rgba(245, 158, 11, 0.08)',
+                padding: '0.5rem 0.75rem',
+                borderRadius: '4px',
+                border: '1px solid rgba(245, 158, 11, 0.2)',
+              }}
+            >
+              <strong>Advanced Character Stripping:</strong> {activeCandidate.removedCharCount} non-Base64
+              characters removed.{' '}
+              {activeCandidate.removedCharsDetails &&
+                activeCandidate.removedCharsDetails.map((d) => `'${d.char}' (×${d.count})`).join(', ')}
+            </div>
+          )}
+
+          {activeCandidate && activeCandidate.warnings.length > 0 && (
+            <div style={{ marginTop: '0.25rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+              {activeCandidate.warnings.map((w, idx) => (
                 <div
                   key={idx}
                   style={{
@@ -268,9 +704,28 @@ export function Base64RepairView({ initialPayload = '', onSendToDecode }: Base64
               ))}
             </div>
           )}
+
+          {activeCandidate && activeCandidate.errors.length > 0 && (
+            <div style={{ marginTop: '0.25rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+              {activeCandidate.errors.map((err, idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    fontSize: '0.75rem',
+                    color: 'var(--color-error)',
+                  }}
+                >
+                  <AlertCircle size={14} />
+                  <span>{err}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 }
-

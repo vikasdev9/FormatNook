@@ -739,6 +739,7 @@ export function EncoderDecoderWorkspace({
             setTextInput(payload);
             setWorkbenchTab('editor');
           }}
+          onBackToDecoder={() => setWorkbenchTab('editor')}
         />
       )}
 
@@ -866,6 +867,15 @@ export function EncoderDecoderWorkspace({
             isValid={validation.isValid}
             issues={validation.issues}
             successMessage={`Successfully ${direction === 'encode' ? 'Encoded to Base64' : 'Decoded'}`}
+            action={
+              direction === 'decode' && validation.isValid === false && textInput.trim()
+                ? {
+                    label: 'Repair & Normalize Payload',
+                    icon: <Wrench size={14} />,
+                    onClick: () => setWorkbenchTab('repair'),
+                  }
+                : undefined
+            }
           />
 
           {isLargeOutput && (
