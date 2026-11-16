@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Sparkles, Code2 } from 'lucide-react';
+import { Sparkles, Code2, Keyboard } from 'lucide-react';
 import { IndentOption, ValidationIssue } from '@/types/tool';
 import {
   formatHtml,
@@ -18,6 +18,11 @@ import { createBeautifierSharePayload } from '../adapters/beautifier-share.adapt
 import { ResetButton } from '@/components/workspace/ResetButton';
 import { ValidationResult } from '@/components/workspace/ValidationResult';
 import { formatByteSize } from '@/lib/file-reader';
+import {
+  KeyboardShortcutsModal,
+  useKeyboardShortcuts,
+  useModalShortcuts,
+} from '@/features/keyboard-shortcuts';
 
 export type BeautifierLanguage = 'html' | 'css' | 'javascript' | 'sql';
 
@@ -43,6 +48,30 @@ export function BeautifierWorkspace({
   const [validationState, setValidationState] = useState<{ isValid: boolean | null; issues: ValidationIssue[] }>({
     isValid: null,
     issues: [],
+  });
+  const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
+
+  // Modal stack management for Beautifier Shortcuts Help
+  useModalShortcuts('beautifier-shortcuts-modal', isShortcutsOpen, () => setIsShortcutsOpen(false));
+
+  // Centralized Beautifiers Keyboard Shortcuts
+  useKeyboardShortcuts({
+    scope: 'workspace',
+    category: 'beautifiers',
+    bindings: {
+      'beautifier-format': () => runFormatter(input, indent),
+      'beautifier-minify': () => runFormatter(input, indent),
+      'beautifier-copy': () => {
+        if (output && typeof navigator !== 'undefined') {
+          navigator.clipboard?.writeText(output);
+        }
+      },
+      'beautifier-clear': () => {
+        setInput('');
+        setOutput('');
+      },
+      'beautifier-shortcuts': () => setIsShortcutsOpen(true),
+    },
   });
 
   const runFormatter = (content: string, indentOption: IndentOption) => {
@@ -117,6 +146,16 @@ export function BeautifierWorkspace({
             acceptExtensions={fileExtensions}
           />
           <ResetButton onReset={handleReset} />
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={() => setIsShortcutsOpen(true)}
+            title="Keyboard Shortcuts Reference"
+            aria-label="Keyboard Shortcuts Reference"
+          >
+            <Keyboard size={14} />
+            <span>Shortcuts</span>
+          </button>
         </div>
       </div>
 
@@ -207,6 +246,13 @@ export function BeautifierWorkspace({
           </div>
         </div>
       </div>
+
+      {/* Keyboard Shortcuts Reference Dialog */}
+      <KeyboardShortcutsModal
+        isOpen={isShortcutsOpen}
+        onClose={() => setIsShortcutsOpen(false)}
+        initialCategory="beautifiers"
+      />
     </div>
   );
 }

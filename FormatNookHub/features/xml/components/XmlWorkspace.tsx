@@ -28,6 +28,7 @@ import { XmlConverterModal } from './XmlConverterModal';
 import { XmlSpecializedModal } from './XmlSpecializedModal';
 import { XmlDiffModal } from './XmlDiffModal';
 import { XmlShortcutsModal } from './XmlShortcutsModal';
+import { useKeyboardShortcuts, useModalShortcuts } from '@/features/keyboard-shortcuts';
 
 interface XmlWorkspaceProps {
   initialMode?: 'format' | 'validate';
@@ -199,37 +200,34 @@ export function XmlWorkspace({ initialMode = 'format' }: XmlWorkspaceProps) {
     handleFormat(sampleData, indent);
   };
 
-  // Global Keyboard Shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-        e.preventDefault();
-        handleFormat();
-      }
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'V' || e.key === 'v')) {
-        e.preventDefault();
-        handleValidate();
-      }
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'M' || e.key === 'm')) {
-        e.preventDefault();
-        handleMinify();
-      }
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'X' || e.key === 'x')) {
-        e.preventDefault();
-        setIsXPathOpen(true);
-      }
-      if (e.key === 'Escape') {
-        setIsXPathOpen(false);
-        setIsConverterOpen(false);
-        setIsSpecializedOpen(false);
-        setIsDiffOpen(false);
-        setIsShortcutsOpen(false);
-      }
-    };
+  // Modal Stack Management
+  useModalShortcuts('xml-xpath-modal', isXPathOpen, () => setIsXPathOpen(false));
+  useModalShortcuts('xml-converter-modal', isConverterOpen, () => setIsConverterOpen(false));
+  useModalShortcuts('xml-specialized-modal', isSpecializedOpen, () => setIsSpecializedOpen(false));
+  useModalShortcuts('xml-diff-modal', isDiffOpen, () => setIsDiffOpen(false));
+  useModalShortcuts('xml-shortcuts-modal', isShortcutsOpen, () => setIsShortcutsOpen(false));
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleFormat, handleValidate, handleMinify]);
+  // Centralized Keyboard Shortcuts
+  useKeyboardShortcuts({
+    scope: 'workspace',
+    category: 'xml',
+    bindings: {
+      'xml-format': () => handleFormat(),
+      'xml-validate': () => handleValidate(),
+      'xml-minify': () => handleMinify(),
+      'xml-xpath': () => setIsXPathOpen(true),
+      'xml-copy': () => {
+        if (output && typeof navigator !== 'undefined') {
+          navigator.clipboard?.writeText(output);
+        }
+      },
+      'xml-clear': () => {
+        setInput('');
+        setOutput('');
+      },
+      'xml-shortcuts': () => setIsShortcutsOpen(true),
+    },
+  });
 
   // Resizable Panels Handlers (Pointer events, touch & keyboard accessible)
   const handlePointerDownResizer = (e: React.PointerEvent<HTMLDivElement>) => {

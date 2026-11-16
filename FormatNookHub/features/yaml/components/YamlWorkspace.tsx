@@ -28,6 +28,7 @@ import { YamlConverterModal } from './YamlConverterModal';
 import { YamlInspectorModal } from './YamlInspectorModal';
 import { YamlDiffModal } from './YamlDiffModal';
 import { YamlShortcutsModal } from './YamlShortcutsModal';
+import { useKeyboardShortcuts, useModalShortcuts } from '@/features/keyboard-shortcuts';
 
 interface YamlWorkspaceProps {
   initialMode?: 'format' | 'validate';
@@ -252,31 +253,32 @@ export function YamlWorkspace({ initialMode = 'format' }: YamlWorkspaceProps) {
     handleFormat(updatedYaml, indent);
   };
 
-  // Global Keyboard Shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl/Cmd + Enter -> Format
-      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-        e.preventDefault();
-        handleFormat();
-      }
-      // Ctrl/Cmd + Shift + V -> Validate
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'V' || e.key === 'v')) {
-        e.preventDefault();
-        handleValidate();
-      }
-      // Esc -> Close modals
-      if (e.key === 'Escape') {
-        setIsConverterOpen(false);
-        setIsInspectorOpen(false);
-        setIsDiffOpen(false);
-        setIsShortcutsOpen(false);
-      }
-    };
+  // Modal Stack Management
+  useModalShortcuts('yaml-converter-modal', isConverterOpen, () => setIsConverterOpen(false));
+  useModalShortcuts('yaml-inspector-modal', isInspectorOpen, () => setIsInspectorOpen(false));
+  useModalShortcuts('yaml-diff-modal', isDiffOpen, () => setIsDiffOpen(false));
+  useModalShortcuts('yaml-shortcuts-modal', isShortcutsOpen, () => setIsShortcutsOpen(false));
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleFormat, handleValidate]);
+  // Centralized Keyboard Shortcuts
+  useKeyboardShortcuts({
+    scope: 'workspace',
+    category: 'yaml',
+    bindings: {
+      'yaml-format': () => handleFormat(),
+      'yaml-validate': () => handleValidate(),
+      'yaml-minify': () => handleMinify(),
+      'yaml-copy': () => {
+        if (output && typeof navigator !== 'undefined') {
+          navigator.clipboard?.writeText(output);
+        }
+      },
+      'yaml-clear': () => {
+        setInput('');
+        setOutput('');
+      },
+      'yaml-shortcuts': () => setIsShortcutsOpen(true),
+    },
+  });
 
   // Resizable Panels Handlers (Pointer events, touch & keyboard accessible)
   const handlePointerDownResizer = (e: React.PointerEvent<HTMLDivElement>) => {

@@ -14,6 +14,11 @@ import { DiffSettings } from './DiffSettings';
 import { DiffStatistics } from './DiffStatistics';
 import { DiffResult } from './DiffResult';
 import { TextEditor } from './TextEditor';
+import {
+  KeyboardShortcutsModal,
+  useKeyboardShortcuts,
+  useModalShortcuts,
+} from '@/features/keyboard-shortcuts';
 
 interface ModeConfig {
   label: string;
@@ -140,6 +145,28 @@ export function TextDiffWorkspace() {
   const [showSettings, setShowSettings] = useState<boolean>(false);
   const [diffResult, setDiffResult] = useState<DiffEngineResult | DiffResultData | null>(null);
   const [isComparing, setIsComparing] = useState<boolean>(false);
+  const [isShortcutsOpen, setIsShortcutsOpen] = useState<boolean>(false);
+
+  // Modal stack management for Diff Shortcuts Help
+  useModalShortcuts('diff-shortcuts-modal', isShortcutsOpen, () => setIsShortcutsOpen(false));
+
+  // Centralized Diff Keyboard Shortcuts
+  useKeyboardShortcuts({
+    scope: 'workspace',
+    category: 'diff',
+    bindings: {
+      'diff-compare': () => handleCompareClick(),
+      'diff-swap': () => handleSwap(),
+      'diff-copy': () => {
+        const unified = diffResult ? (diffResult as any).unifiedText || (diffResult as any).diffText || '' : '';
+        if (unified && typeof navigator !== 'undefined') {
+          navigator.clipboard?.writeText(unified);
+        }
+      },
+      'diff-clear': () => handleClear(),
+      'diff-shortcuts': () => setIsShortcutsOpen(true),
+    },
+  });
 
   const prevFormatRef = useRef<DiffFormat>(options.format);
   const origEditorRef = useRef<HTMLTextAreaElement>(null);
@@ -270,6 +297,7 @@ export function TextDiffWorkspace() {
         unifiedDiffText={diffResult?.unifiedDiffText ?? ''}
         diffResult={diffResult}
         isComparing={isComparing}
+        onOpenShortcuts={() => setIsShortcutsOpen(true)}
       />
 
       {/* Collapsible Comparison Settings */}
@@ -352,6 +380,13 @@ export function TextDiffWorkspace() {
         diffResult={diffResult}
         viewMode={options.viewMode}
         isComparing={isComparing}
+      />
+
+      {/* Keyboard Shortcuts Reference Dialog */}
+      <KeyboardShortcutsModal
+        isOpen={isShortcutsOpen}
+        onClose={() => setIsShortcutsOpen(false)}
+        initialCategory="diff"
       />
     </div>
   );

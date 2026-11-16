@@ -24,10 +24,6 @@ export function Footer() {
             <p className="footer-brand-p">
               {siteConfig.description}
             </p>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8125rem', color: 'var(--color-success)' }}>
-              <Shield size={16} />
-              <span>100% Private Client-Side Processing</span>
-            </div>
           </div>
 
           <div>

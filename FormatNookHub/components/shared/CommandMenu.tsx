@@ -6,6 +6,7 @@ import { Search, X, Sparkles, ArrowRight } from 'lucide-react';
 import { toolRegistry } from '@/config/tools';
 import { ToolDefinition } from '@/types/tool';
 import { IconRenderer } from './IconRenderer';
+import { useModalShortcuts } from '@/features/keyboard-shortcuts';
 
 interface CommandMenuProps {
   isOpen: boolean;
@@ -18,6 +19,9 @@ export function CommandMenu({ isOpen, onClose }: CommandMenuProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Modal stack management for Escape key & focus preservation
+  useModalShortcuts('command-menu', isOpen, onClose);
+
   useEffect(() => {
     if (isOpen) {
       setTimeout(() => inputRef.current?.focus(), 50);
@@ -25,23 +29,6 @@ export function CommandMenu({ isOpen, onClose }: CommandMenuProps) {
       setSelectedIndex(0);
     }
   }, [isOpen]);
-
-  // Global key listener for Ctrl+K / Cmd+K and Esc
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        if (isOpen) onClose();
-        else setSelectedIndex(0);
-      }
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
 
   const filteredTools: ToolDefinition[] = React.useMemo(() => {
     if (!query.trim()) {
@@ -69,6 +56,16 @@ export function CommandMenu({ isOpen, onClose }: CommandMenuProps) {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      onClose();
+      return;
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      onClose();
+      return;
+    }
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       setSelectedIndex((prev) => (prev < filteredTools.length - 1 ? prev + 1 : prev));

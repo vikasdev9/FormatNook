@@ -58,6 +58,7 @@ import { JsonRecentModal } from './JsonRecentModal';
 import { JsonCodeGenModal } from './JsonCodeGenModal';
 import { JsonDiffModal } from './JsonDiffModal';
 import { JsonColorPaletteModal } from './JsonColorPaletteModal';
+import { useKeyboardShortcuts, useModalShortcuts } from '@/features/keyboard-shortcuts';
 import {
   loadStoredPreferences,
   getEffectivePalette,
@@ -798,37 +799,32 @@ export function JsonWorkspace({ initialMode = 'format' }: JsonWorkspaceProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Global Keyboard Shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const isCmdOrCtrl = e.metaKey || e.ctrlKey;
+  // Centralized Modal Stack Management (Topmost modal closes first on Escape)
+  useModalShortcuts('json-repair-modal', isRepairOpen, () => setIsRepairOpen(false));
+  useModalShortcuts('json-transform-modal', isTransformOpen, () => setIsTransformOpen(false));
+  useModalShortcuts('json-schema-modal', isSchemaOpen, () => setIsSchemaOpen(false));
+  useModalShortcuts('json-stats-modal', isStatsOpen, () => setIsStatsOpen(false));
+  useModalShortcuts('json-recent-modal', isRecentOpen, () => setIsRecentOpen(false));
+  useModalShortcuts('json-shortcuts-modal', isShortcutsOpen, () => setIsShortcutsOpen(false));
+  useModalShortcuts('json-fullscreen', isFullScreen, () => setIsFullScreen(false));
 
-      if (isCmdOrCtrl && e.key === 'Enter') {
-        e.preventDefault();
-        handleFormat();
-      } else if (isCmdOrCtrl && e.shiftKey && (e.key === 'M' || e.key === 'm')) {
-        e.preventDefault();
-        handleMinify();
-      } else if (isCmdOrCtrl && e.shiftKey && (e.key === 'V' || e.key === 'v')) {
-        e.preventDefault();
-        handleValidate();
-      } else if (isCmdOrCtrl && e.shiftKey && (e.key === 'R' || e.key === 'r')) {
-        e.preventDefault();
-        setIsRepairOpen(true);
-      } else if (e.key === 'Escape') {
-        setIsStatsOpen(false);
-        setIsTransformOpen(false);
-        setIsRepairOpen(false);
-        setIsShortcutsOpen(false);
-        setIsSchemaOpen(false);
-        setIsRecentOpen(false);
-        if (isFullScreen) setIsFullScreen(false);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleFormat, handleMinify, handleValidate, isFullScreen]);
+  // Centralized Keyboard Shortcuts
+  useKeyboardShortcuts({
+    scope: 'workspace',
+    category: 'json',
+    bindings: {
+      'json-format': () => handleFormat(),
+      'json-format-alt': () => handleFormat(),
+      'json-minify': handleMinify,
+      'json-validate': handleValidate,
+      'json-repair': () => setIsRepairOpen(true),
+      'json-shortcuts': () => setIsShortcutsOpen(true),
+      'json-fold': () => inputEditorActionsRef.current?.fold(),
+      'json-unfold': () => inputEditorActionsRef.current?.unfold(),
+      'json-fold-all': () => inputEditorActionsRef.current?.foldAll(),
+      'json-unfold-all': () => inputEditorActionsRef.current?.unfoldAll(),
+    },
+  });
 
   return (
     <div

@@ -6,9 +6,19 @@ import { Search, Layers, ShieldCheck } from 'lucide-react';
 import { siteConfig } from '@/config/site';
 import { ThemeToggle } from './ThemeToggle';
 import { CommandMenu } from './CommandMenu';
+import { useKeyboardShortcuts } from '@/features/keyboard-shortcuts';
 
 export function Header() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+
+  // Global Ctrl+K / Cmd+K Search Shortcut
+  useKeyboardShortcuts({
+    scope: 'global',
+    category: 'global',
+    bindings: {
+      'global-search': () => setIsSearchOpen((prev) => !prev),
+    },
+  });
 
   return (
     <>

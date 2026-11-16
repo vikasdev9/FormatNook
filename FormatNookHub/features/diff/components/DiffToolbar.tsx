@@ -13,6 +13,7 @@ import {
   AlignLeft,
   Sparkles,
   Loader2,
+  Keyboard,
 } from 'lucide-react';
 import { DiffFormat, DiffOptions, DiffViewMode, DiffResultData } from '../types/diff.types';
 import { useClipboard } from '@/hooks/useClipboard';
@@ -32,6 +33,7 @@ interface DiffToolbarProps {
   unifiedDiffText: string;
   isComparing?: boolean;
   diffResult?: DiffResultData | null;
+  onOpenShortcuts?: () => void;
 }
 
 export const COMPARISON_MODES: { id: DiffFormat; label: string; shortLabel: string }[] = [
@@ -60,6 +62,7 @@ export function DiffToolbar({
   unifiedDiffText,
   isComparing = false,
   diffResult,
+  onOpenShortcuts,
 }: DiffToolbarProps) {
   const { copied, copy } = useClipboard();
 
@@ -200,6 +203,19 @@ export function DiffToolbar({
         </div>
 
         <div className="toolbar-group-right">
+          {onOpenShortcuts && (
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={onOpenShortcuts}
+              title="Keyboard Shortcuts Reference"
+              aria-label="Keyboard Shortcuts Reference"
+            >
+              <Keyboard size={14} />
+              <span>Shortcuts</span>
+            </button>
+          )}
+
           <button
             type="button"
             className={`btn ${showSettings ? 'btn-secondary active' : 'btn-ghost'}`}

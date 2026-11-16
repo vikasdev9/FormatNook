@@ -70,7 +70,13 @@ import {
   Lock,
   ArrowRightLeft,
   WrapText,
+  Keyboard,
 } from 'lucide-react';
+import {
+  KeyboardShortcutsModal,
+  useKeyboardShortcuts,
+  useModalShortcuts,
+} from '@/features/keyboard-shortcuts';
 
 export type WorkbenchViewTab =
   | 'editor'
@@ -151,6 +157,28 @@ export function EncoderDecoderWorkspace({
   const [validation, setValidation] = useState<{ isValid: boolean | null; issues: any[] }>({
     isValid: null,
     issues: [],
+  });
+  const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
+
+  // Modal stack management for Base64 Shortcuts Help
+  useModalShortcuts('base64-shortcuts-modal', isShortcutsOpen, () => setIsShortcutsOpen(false));
+
+  // Centralized Base64 Keyboard Shortcuts
+  useKeyboardShortcuts({
+    scope: 'workspace',
+    category: 'base64',
+    bindings: {
+      'base64-execute': () => executeJob(),
+      'base64-copy': () => {
+        if (outputString && typeof navigator !== 'undefined') {
+          navigator.clipboard?.writeText(outputString);
+        }
+      },
+      'base64-clear': () => handleReset(),
+      'base64-repair': () => setWorkbenchTab('repair'),
+      'base64-inspect': () => setWorkbenchTab('inspect'),
+      'base64-shortcuts': () => setIsShortcutsOpen(true),
+    },
   });
 
   // Keep hex dump bytes synced with current content
@@ -862,6 +890,16 @@ export function EncoderDecoderWorkspace({
                 <span>{direction === 'encode' ? 'Encode to Base64' : 'Decode Payload'}</span>
               </button>
               <ResetButton onReset={handleReset} />
+              <button
+                type="button"
+                className="btn btn-sm btn-ghost"
+                onClick={() => setIsShortcutsOpen(true)}
+                title="Keyboard Shortcuts Reference"
+                aria-label="Keyboard Shortcuts"
+              >
+                <Keyboard size={14} />
+                <span>Shortcuts</span>
+              </button>
             </div>
           </div>
 
@@ -1090,6 +1128,13 @@ export function EncoderDecoderWorkspace({
           )}
         </>
       )}
+
+      {/* Keyboard Shortcuts Reference Dialog */}
+      <KeyboardShortcutsModal
+        isOpen={isShortcutsOpen}
+        onClose={() => setIsShortcutsOpen(false)}
+        initialCategory="base64"
+      />
     </div>
   );
 }

@@ -252,6 +252,22 @@ export function CodeEditor({
         // Fallback gracefully if internal contribution is unavailable
       }
 
+      // Register native Monaco command for Ctrl/Cmd+Enter to trigger workspace formatting
+      try {
+        editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
+          const isMac = typeof navigator !== 'undefined' && /mac/i.test(navigator.userAgent || '');
+          const evt = new KeyboardEvent('keydown', {
+            key: 'Enter',
+            ctrlKey: !isMac,
+            metaKey: isMac,
+            bubbles: true,
+          });
+          window.dispatchEvent(evt);
+        });
+      } catch {
+        // ignore
+      }
+
       if (onEditorReady) {
         onEditorReady({
           foldAll: () => {
