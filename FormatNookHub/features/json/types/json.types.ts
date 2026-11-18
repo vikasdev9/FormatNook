@@ -1,6 +1,6 @@
 import { IndentOption } from '@/types/tool';
 
-export type JsonViewMode = 'code' | 'tree' | 'table';
+export type JsonViewMode = 'code' | 'tree' | 'table' | 'graph';
 
 export type JsonDataType =
   | 'string'

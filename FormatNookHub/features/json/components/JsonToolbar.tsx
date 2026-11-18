@@ -23,6 +23,8 @@ import {
   ArrowDownAZ,
   Quote,
   Palette,
+  Network,
+  Database,
 } from 'lucide-react';
 import { IndentOption } from '@/types/tool';
 import { JsonViewMode } from '../types/json.types';
@@ -46,6 +48,7 @@ interface JsonToolbarProps {
   onOpenStats: () => void;
   onOpenShortcuts: () => void;
   onOpenRecent: () => void;
+  onOpenMockData?: () => void;
   isJson5Mode?: boolean;
   onToggleJson5Mode?: () => void;
   onOpenCodeGen?: () => void;
@@ -96,6 +99,7 @@ export function JsonToolbar({
   onOpenStats,
   onOpenShortcuts,
   onOpenRecent,
+  onOpenMockData,
   isJson5Mode = false,
   onToggleJson5Mode,
   onOpenCodeGen,
@@ -169,6 +173,17 @@ export function JsonToolbar({
             >
               <TableIcon size={14} />
               <span>Table</span>
+            </button>
+            <button
+              role="tab"
+              aria-selected={viewMode === 'graph'}
+              className={`json-view-pill ${viewMode === 'graph' ? 'active' : ''}`}
+              onClick={() => onViewModeChange('graph')}
+              data-testid="view-mode-graph"
+              title="Interactive Hierarchical Graph Visualizer"
+            >
+              <Network size={14} />
+              <span>Visualize</span>
             </button>
           </div>
 
@@ -285,6 +300,18 @@ export function JsonToolbar({
               >
                 <FileCode2 size={15} />
                 <span>Code Models</span>
+              </button>
+            )}
+
+            {onOpenMockData && (
+              <button
+                className="btn btn-secondary"
+                onClick={onOpenMockData}
+                title="Generate realistic synthetic mock data from sample JSON, Schema, or presets"
+                data-testid="json-mock-data-btn"
+              >
+                <Database size={15} />
+                <span>Mock Data</span>
               </button>
             )}
 

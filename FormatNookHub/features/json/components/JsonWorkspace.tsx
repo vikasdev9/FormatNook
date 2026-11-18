@@ -48,6 +48,8 @@ import { formatByteSize } from '@/lib/file-reader';
 import { JsonToolbar } from './JsonToolbar';
 import { JsonTreeView, JsonTreeActions } from './JsonTreeView';
 import { JsonTableView } from './JsonTableView';
+import { JsonGraphView } from './JsonGraphView';
+import { JsonMockDataModal } from './JsonMockDataModal';
 import { JsonPathPanel } from './JsonPathPanel';
 import { JsonStatsModal } from './JsonStatsModal';
 import { JsonTransformModal } from './JsonTransformModal';
@@ -122,6 +124,7 @@ export function JsonWorkspace({ initialMode = 'format' }: JsonWorkspaceProps) {
   const [isRecentOpen, setIsRecentOpen] = useState<boolean>(false);
   const [isCodeGenOpen, setIsCodeGenOpen] = useState<boolean>(false);
   const [isDiffOpen, setIsDiffOpen] = useState<boolean>(false);
+  const [isMockDataOpen, setIsMockDataOpen] = useState<boolean>(false);
   const [isJson5Mode, setIsJson5Mode] = useState<boolean>(false);
   const [isColorPaletteOpen, setIsColorPaletteOpen] = useState<boolean>(false);
   const [activeFoldLevel, setActiveFoldLevel] = useState<number | null>(null);
@@ -683,6 +686,15 @@ export function JsonWorkspace({ initialMode = 'format' }: JsonWorkspaceProps) {
     [handleFormat]
   );
 
+  // Insert generated mock data into editor and format immediately
+  const handleInsertMockData = useCallback(
+    (generatedJson: string) => {
+      setInput(generatedJson);
+      handleFormat(generatedJson);
+    },
+    [handleFormat]
+  );
+
   // Cancel background worker
   const handleCancelWorker = () => {
     jsonWorkerClient.terminate();
@@ -889,6 +901,7 @@ export function JsonWorkspace({ initialMode = 'format' }: JsonWorkspaceProps) {
         }}
         onOpenCodeGen={() => setIsCodeGenOpen(true)}
         onOpenDiff={() => setIsDiffOpen(true)}
+        onOpenMockData={() => setIsMockDataOpen(true)}
         onSortKeys={handleSortKeys}
         onOneLine={handleOneLine}
         onStringify={handleStringify}
@@ -1177,6 +1190,28 @@ export function JsonWorkspace({ initialMode = 'format' }: JsonWorkspaceProps) {
         </div>
       )}
 
+      {/* Graph Visualizer View */}
+      {viewMode === 'graph' && (
+        <div className="json-structured-view-container" data-testid="json-graph-container">
+          {parsedData !== null ? (
+            <JsonGraphView
+              data={parsedData}
+              isDark={appTheme === 'dark'}
+            />
+          ) : (
+            <div className="json-empty-structured-state">
+              <AlertTriangle size={28} className="text-warning" />
+              <h3>Valid JSON Required for Graph Visualizer</h3>
+              <p>The input currently contains syntax errors. Please format or repair your JSON to generate the interactive graph.</p>
+              <button className="btn btn-primary btn-sm" onClick={() => handleFormat()}>
+                <Sparkles size={14} />
+                <span>Format & Parse</span>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Modals */}
       <JsonStatsModal
         isOpen={isStatsOpen}
@@ -1240,6 +1275,13 @@ export function JsonWorkspace({ initialMode = 'format' }: JsonWorkspaceProps) {
         preferences={palettePreferences}
         activePalette={effectivePalette.palette}
         onPreferencesChange={(newPrefs) => setPalettePreferences(newPrefs)}
+      />
+
+      <JsonMockDataModal
+        isOpen={isMockDataOpen}
+        onClose={() => setIsMockDataOpen(false)}
+        currentJsonText={output || input}
+        onInsertIntoEditor={handleInsertMockData}
       />
 
       {showUndoReset && (
