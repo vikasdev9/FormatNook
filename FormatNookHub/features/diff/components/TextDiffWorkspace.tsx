@@ -9,6 +9,7 @@ import {
   preprocessContent,
   DEFAULT_DIFF_OPTIONS,
 } from '../services/diff-service';
+import { diffWorkerClient } from '../services/diff-worker-client';
 import { DiffToolbar } from './DiffToolbar';
 import { DiffSettings } from './DiffSettings';
 import { DiffStatistics } from './DiffStatistics';
@@ -172,6 +173,12 @@ export function TextDiffWorkspace() {
   const origEditorRef = useRef<HTMLTextAreaElement>(null);
   const modEditorRef = useRef<HTMLTextAreaElement>(null);
   const isSyncingScroll = useRef<boolean>(false);
+  const requestIdRef = useRef<number>(0);
+
+  // Acquire background Diff Worker lifecycle
+  useEffect(() => {
+    return diffWorkerClient.acquire();
+  }, []);
 
   const currentModeConfig = MODE_CONFIGS[options.format] || MODE_CONFIGS.auto;
 
@@ -218,16 +225,43 @@ export function TextDiffWorkspace() {
     }
   }, []);
 
-  // Compute diff execution
+  // Compute diff execution via background Web Worker for large payloads (with synchronous fallback)
   const executeDiff = useCallback(
     (orig: string, mod: string, currentOptions: DiffOptions) => {
-      setIsComparing(true);
-      try {
-        const result = computeDiff(orig, mod, currentOptions);
-        setDiffResult(result);
-      } finally {
+      const reqId = ++requestIdRef.current;
+      const totalLen = (orig || '').length + (mod || '').length;
+
+      // For standard payloads or when Worker is unavailable (e.g. Node/SSR/jsdom),
+      // compute synchronously for instant response and test compatibility
+      if (typeof window === 'undefined' || typeof Worker === 'undefined' || totalLen <= 10000) {
         setIsComparing(false);
+        setDiffResult(computeDiff(orig, mod, currentOptions));
+        return;
       }
+
+      // For large or adversarial inputs (>10k chars), compute in background Web Worker
+      setIsComparing(true);
+      diffWorkerClient
+        .computeDiff(orig, mod, currentOptions)
+        .then((res) => {
+          if (reqId === requestIdRef.current) {
+            if (res.success && res.data) {
+              setDiffResult(res.data);
+            } else {
+              setDiffResult(computeDiff(orig, mod, currentOptions));
+            }
+          }
+        })
+        .catch(() => {
+          if (reqId === requestIdRef.current) {
+            setDiffResult(computeDiff(orig, mod, currentOptions));
+          }
+        })
+        .finally(() => {
+          if (reqId === requestIdRef.current) {
+            setIsComparing(false);
+          }
+        });
     },
     []
   );

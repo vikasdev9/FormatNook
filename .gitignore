@@ -71,4 +71,6 @@ temp/
 .codex/
 .impeccable/config.local.json
 impeccable.exe
+.agents/skills/
+FormatNookHub/.agents/skills/
 

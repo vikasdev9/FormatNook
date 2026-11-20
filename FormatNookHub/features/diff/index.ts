@@ -6,5 +6,6 @@ export { DiffResult } from './components/DiffResult';
 export { DiffLine } from './components/DiffLine';
 export { TextEditor } from './components/TextEditor';
 export * from './services/diff-service';
+export * from './services/diff-worker-client';
 export * from './types/diff.types';
 

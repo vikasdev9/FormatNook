@@ -50,6 +50,8 @@ import { JsonTreeView, JsonTreeActions } from './JsonTreeView';
 import { JsonTableView } from './JsonTableView';
 import { JsonGraphView } from './JsonGraphView';
 import { JsonMockDataModal } from './JsonMockDataModal';
+import { JsonSchemaWizardView } from './JsonSchemaWizardView';
+import { JsonPatchWorkspaceView } from './JsonPatchWorkspaceView';
 import { JsonPathPanel } from './JsonPathPanel';
 import { JsonStatsModal } from './JsonStatsModal';
 import { JsonTransformModal } from './JsonTransformModal';
@@ -1031,9 +1033,11 @@ export function JsonWorkspace({ initialMode = 'format' }: JsonWorkspaceProps) {
             >
               <div className="panel-header">
                 <div className="panel-title-group">
-                  <span>Original Input (Raw JSON)</span>
-                  <span className="panel-stats">
-                    {inputLines.toLocaleString()} {inputLines === 1 ? 'Line' : 'Lines'} &bull; {formatByteSize(inputBytes)}
+                  <span className="panel-title-text">Original Input (Raw JSON)</span>
+                  <span className="panel-stats" aria-label="Input statistics">
+                    <span className="panel-stat-item">{inputLines.toLocaleString()} {inputLines === 1 ? 'Line' : 'Lines'}</span>
+                    <span className="panel-stat-sep">&bull;</span>
+                    <span className="panel-stat-item">{formatByteSize(inputBytes)}</span>
                   </span>
                 </div>
                 <div className="panel-actions">
@@ -1087,9 +1091,11 @@ export function JsonWorkspace({ initialMode = 'format' }: JsonWorkspaceProps) {
             >
               <div className="panel-header">
                 <div className="panel-title-group">
-                  <span>Processed Output</span>
-                  <span className="panel-stats">
-                    {outputLines.toLocaleString()} {outputLines === 1 ? 'Line' : 'Lines'} &bull; {formatByteSize(outputBytes)}
+                  <span className="panel-title-text">Processed Output</span>
+                  <span className="panel-stats" aria-label="Output statistics">
+                    <span className="panel-stat-item">{outputLines.toLocaleString()} {outputLines === 1 ? 'Line' : 'Lines'}</span>
+                    <span className="panel-stat-sep">&bull;</span>
+                    <span className="panel-stat-item">{formatByteSize(outputBytes)}</span>
                   </span>
                   {isOutdated && (
                     <span className="badge badge-warning" data-testid="output-outdated-badge">
@@ -1209,6 +1215,28 @@ export function JsonWorkspace({ initialMode = 'format' }: JsonWorkspaceProps) {
               </button>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Schema Wizard View */}
+      {viewMode === 'schema' && (
+        <div className="json-structured-view-container" data-testid="json-schema-wizard-container">
+          <JsonSchemaWizardView
+            inputJson={output || input}
+            onApplyJsonToWorkspace={handleInsertMockData}
+            isDark={appTheme === 'dark'}
+          />
+        </div>
+      )}
+
+      {/* JSON Patch & Merge Patch View */}
+      {viewMode === 'patch' && (
+        <div className="json-structured-view-container" data-testid="json-patch-container">
+          <JsonPatchWorkspaceView
+            initialOriginal={input}
+            onApplyResultToWorkspace={handleInsertMockData}
+            isDark={appTheme === 'dark'}
+          />
         </div>
       )}
 

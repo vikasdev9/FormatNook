@@ -34,3 +34,7 @@ Thumbs.db
 # Logs
 *.log
 
+# Agent Skills (managed globally in ~/.gemini/config/skills/)
+.agents/skills/
+
+

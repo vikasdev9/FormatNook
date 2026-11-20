@@ -29,6 +29,7 @@ import {
   extractRulesFromSchema,
   generateMockData,
 } from '../services/json-mock-generator';
+import { downloadFile } from '@/lib/download';
 
 interface JsonMockDataModalProps {
   isOpen: boolean;
@@ -220,13 +221,7 @@ export function JsonMockDataModal({
 
   const handleDownload = () => {
     if (!generatedJson) return;
-    const blob = new Blob([generatedJson], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `mock-data-${recordCount}-records.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadFile(generatedJson, `mock-data-${recordCount}-records.json`, 'application/json');
   };
 
   const handleInsert = () => {

@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const PORT = process.env.PORT || 3007;
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,
@@ -8,7 +10,7 @@ export default defineConfig({
   workers: 1,
   reporter: 'list',
   use: {
-    baseURL: 'http://127.0.0.1:3005',
+    baseURL: `http://127.0.0.1:${PORT}`,
     channel: 'chrome',
     headless: true,
     trace: 'on-first-retry',
@@ -24,8 +26,9 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'npx.cmd next start -H 127.0.0.1 -p 3005',
-    url: 'http://127.0.0.1:3005',
+    command: `node ./node_modules/next/dist/bin/next start -H 127.0.0.1 -p ${PORT}`,
+    cwd: __dirname,
+    url: `http://127.0.0.1:${PORT}`,
     reuseExistingServer: true,
     timeout: 120000,
   },

@@ -32,6 +32,7 @@ import {
   exportGraphToPng,
   MAX_SAFE_NODES,
 } from '../services/json-graph-builder';
+import { downloadFile } from '@/lib/download';
 
 interface JsonGraphViewProps {
   data: any;
@@ -239,13 +240,7 @@ export function JsonGraphView({ data, isDark = true }: JsonGraphViewProps) {
   // Export handlers
   const handleExportSvg = () => {
     const svgStr = exportGraphToSvg(layout.visibleNodes, layout.visibleEdges, layout.boundingBox, isDark);
-    const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'formatnook-json-graph.svg';
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadFile(svgStr, 'formatnook-json-graph.svg', 'image/svg+xml;charset=utf-8');
     setIsExportMenuOpen(false);
   };
 
@@ -253,12 +248,7 @@ export function JsonGraphView({ data, isDark = true }: JsonGraphViewProps) {
     try {
       const svgStr = exportGraphToSvg(layout.visibleNodes, layout.visibleEdges, layout.boundingBox, isDark);
       const blob = await exportGraphToPng(svgStr, layout.boundingBox.width, layout.boundingBox.height);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'formatnook-json-graph.png';
-      a.click();
-      URL.revokeObjectURL(url);
+      downloadFile(blob, 'formatnook-json-graph.png', 'image/png');
     } catch (e) {
       console.error('Failed to export PNG', e);
     }

@@ -498,7 +498,7 @@ test.describe('Professional JSON Workspace & Formatter', () => {
     await page.setViewportSize({ width: 1280, height: 800 });
 
     const inputArea = page.getByTestId('json-input-panel').locator('textarea');
-    const outputArea = page.getByTestId('json-output-panel').locator('textarea');
+    const outputArea = page.getByTestId('json-output-panel').locator('[data-testid="standalone-structured-view"], textarea');
 
     // Generate large JSON content with 100 lines
     const longJson = JSON.stringify(
@@ -510,7 +510,7 @@ test.describe('Professional JSON Workspace & Formatter', () => {
     await inputArea.fill(longJson);
     await page.getByTestId('json-beautify-btn').click();
 
-    // Verify textarea has scrollHeight > clientHeight (internal scroll)
+    // Verify container has scrollHeight > clientHeight (internal scroll)
     const canScrollInput = await inputArea.evaluate((el) => el.scrollHeight > el.clientHeight);
     const canScrollOutput = await outputArea.evaluate((el) => el.scrollHeight > el.clientHeight);
 
@@ -525,14 +525,15 @@ test.describe('Professional JSON Workspace & Formatter', () => {
 
   test('26. Automatic formatting on paste/typing with debounce and status updates', async ({ page }) => {
     const inputArea = page.getByTestId('json-input-panel').locator('textarea');
-    const outputArea = page.getByTestId('json-output-panel').locator('textarea');
+    const outputArea = page.getByTestId('json-output-panel').locator('[data-testid="standalone-structured-view"], textarea');
     const statusBadge = page.getByTestId('json-status-badge');
 
     // Paste compact valid JSON
     await inputArea.fill('{"user":"Alice","age":30,"city":"Berlin"}');
 
     // Wait for debounced auto-format (350ms) to trigger and format output
-    await expect(outputArea).toHaveValue(`{\n  "user": "Alice",\n  "age": 30,\n  "city": "Berlin"\n}`);
+    await expect(outputArea).toContainText('"user": "Alice"');
+    await expect(outputArea).toContainText('"city": "Berlin"');
     await expect(statusBadge).toContainText(/Valid JSON|Formatting successful/i);
   });
 
@@ -545,20 +546,22 @@ test.describe('Professional JSON Workspace & Formatter', () => {
     await expect(toggleAutoFormatBtn).toHaveText(/Auto Format: Off/i);
 
     const inputArea = page.getByTestId('json-input-panel').locator('textarea');
-    const outputArea = page.getByTestId('json-output-panel').locator('textarea');
+    const outputArea = page.getByTestId('json-output-panel').locator('[data-testid="standalone-structured-view"], textarea');
 
     // Fill new JSON while auto format is OFF
     await inputArea.fill('{"manual":true,"tested":123}');
     // Output should NOT update automatically
     await page.waitForTimeout(450);
-    expect(await outputArea.inputValue()).not.toContain('"manual": true');
+    const outputTextBefore = await outputArea.evaluate((el) => (el as HTMLTextAreaElement).value ?? el.textContent ?? '');
+    expect(outputTextBefore).not.toContain('"manual": true');
 
     // Click explicit Beautify button
     const beautifyBtn = page.getByTestId('json-beautify-btn');
     await beautifyBtn.click();
 
     // Now output should update immediately
-    await expect(outputArea).toHaveValue(`{\n  "manual": true,\n  "tested": 123\n}`);
+    await expect(outputArea).toContainText('"manual": true');
+    await expect(outputArea).toContainText('"tested": 123');
 
     // Restore Auto Format to ON
     await toggleAutoFormatBtn.click();
@@ -597,7 +600,7 @@ test.describe('Professional JSON Workspace & Formatter', () => {
 
     // Verify error is gone and output is updated
     await expect(errorCard).not.toBeVisible();
-    const outputArea = page.getByTestId('json-output-panel').locator('textarea');
+    const outputArea = page.getByTestId('json-output-panel').locator('[data-testid="standalone-structured-view"], textarea');
     await expect(outputArea).toContainText('"name": "FormatNook"');
   });
 

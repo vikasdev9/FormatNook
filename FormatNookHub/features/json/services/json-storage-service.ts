@@ -24,12 +24,64 @@ function safeGetItem(key: string): string | null {
   }
 }
 
+function isQuotaExceededError(e: any): boolean {
+  return (
+    (typeof DOMException !== 'undefined' &&
+      e instanceof DOMException &&
+      (e.name === 'QuotaExceededError' || e.code === 22 || e.code === 1014)) ||
+    (typeof e?.name === 'string' && /quota/i.test(e.name)) ||
+    (typeof e?.message === 'string' && /quota/i.test(e.message))
+  );
+}
+
+/**
+ * Evict oldest recent file cache entries to free quota.
+ * Never touches favorites or user preferences.
+ */
+function evictOldestRecents(): boolean {
+  try {
+    const data = localStorage.getItem(RECENT_STORAGE_KEY);
+    if (!data) return false;
+    const recents: JsonRecentFile[] = JSON.parse(data);
+    if (!Array.isArray(recents) || recents.length === 0) return false;
+
+    if (recents.length <= 2) {
+      localStorage.removeItem(RECENT_STORAGE_KEY);
+      return true;
+    }
+
+    const pruned = recents.slice(0, Math.ceil(recents.length / 2));
+    localStorage.setItem(RECENT_STORAGE_KEY, JSON.stringify(pruned));
+    return true;
+  } catch {
+    try {
+      localStorage.removeItem(RECENT_STORAGE_KEY);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
+
 function safeSetItem(key: string, value: string): boolean {
   if (typeof window === 'undefined') return false;
   try {
     localStorage.setItem(key, value);
     return true;
   } catch (e) {
+    if (isQuotaExceededError(e)) {
+      // Evict oldest recent entries and retry saving once
+      const evicted = evictOldestRecents();
+      if (evicted) {
+        try {
+          localStorage.setItem(key, value);
+          return true;
+        } catch (retryErr) {
+          console.warn(`Failed to save to localStorage after LRU eviction (${key}):`, retryErr);
+          return false;
+        }
+      }
+    }
     console.warn(`Failed to save to localStorage (${key}):`, e);
     return false;
   }

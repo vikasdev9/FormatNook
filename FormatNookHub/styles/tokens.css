@@ -37,6 +37,19 @@
   --color-info: #1d4ed8;
   --color-info-bg: #eff6ff;
   --color-info-border: #93c5fd;
+  --color-danger: #b91c1c;
+  --color-danger-bg: #fef2f2;
+  --color-danger-border: #fca5a5;
+
+  /* Form & Surface Tokens - Light */
+  --bg-input: #ffffff;
+  --border-input: #cbd5e1;
+  --border-input-focus: var(--accent-primary);
+  --text-input: var(--text-primary);
+  --bg-workspace: #f8fafc;
+  --bg-panel: #ffffff;
+  --bg-panel-header: #f1f5f9;
+  --bg-backdrop: rgba(0, 0, 0, 0.65);
 
   /* Typography */
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -101,6 +114,19 @@
   --color-info: #60a5fa;
   --color-info-bg: rgba(59, 130, 246, 0.12);
   --color-info-border: rgba(96, 165, 250, 0.3);
+  --color-danger: #f87171;
+  --color-danger-bg: rgba(239, 68, 68, 0.12);
+  --color-danger-border: rgba(248, 113, 113, 0.3);
+
+  /* Form & Surface Tokens - Dark */
+  --bg-input: #0f172a;
+  --border-input: #334155;
+  --border-input-focus: var(--accent-primary);
+  --text-input: var(--text-primary);
+  --bg-workspace: #070b14;
+  --bg-panel: #151f32;
+  --bg-panel-header: #0f172a;
+  --bg-backdrop: rgba(0, 0, 0, 0.75);
 
   --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);

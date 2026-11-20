@@ -80,6 +80,39 @@ describe('json-storage-service', () => {
     }
   });
 
+  it('evicts oldest recent files on quota exceeded and retries saving successfully', () => {
+    // Populate some recent files
+    addRecentFile('file1.json', '{"line": 1}');
+    addRecentFile('file2.json', '{"line": 2}');
+    addRecentFile('file3.json', '{"line": 3}');
+    expect(getRecentFiles().length).toBe(3);
+
+    let quotaAttempts = 0;
+    const originalSetItem = localStorage.setItem.bind(localStorage);
+
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation((key, val) => {
+      // Fail on the first attempt when saving snippets
+      if (key === 'formatnook_json_favorite_snippets' && quotaAttempts === 0) {
+        quotaAttempts++;
+        const err = new Error('QuotaExceededError');
+        err.name = 'QuotaExceededError';
+        throw err;
+      }
+      return originalSetItem(key, val);
+    });
+
+    try {
+      const res = saveSnippet('Crucial Snippet', 'Must save', ['api'], '{"status": "ok"}');
+      // Should succeed on the retry after eviction
+      expect(res.success).toBe(true);
+      expect(res.snippet?.title).toBe('Crucial Snippet');
+      // Recents should have been pruned to free space
+      expect(getRecentFiles().length).toBeLessThan(3);
+    } finally {
+      setItemSpy.mockRestore();
+    }
+  });
+
   it('manages editor preferences with defaults and persistence', () => {
     const prefs = getPreferences();
     expect(prefs.indent).toBe('2');

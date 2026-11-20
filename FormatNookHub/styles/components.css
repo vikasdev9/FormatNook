@@ -42,6 +42,11 @@
   cursor: not-allowed;
 }
 
+.btn:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
 .btn-primary {
   background-color: var(--accent-primary);
   color: var(--accent-contrast);
@@ -319,8 +324,7 @@
   position: fixed;
   inset: 0;
   z-index: 100;
-  background-color: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
+  background-color: var(--bg-backdrop, rgba(0, 0, 0, 0.65));
   display: flex;
   align-items: flex-start;
   justify-content: center;

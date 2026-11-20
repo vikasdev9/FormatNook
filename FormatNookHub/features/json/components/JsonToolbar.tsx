@@ -135,11 +135,49 @@ export function JsonToolbar({
   activePaletteThemeName,
 }: JsonToolbarProps) {
   return (
-    <div className="json-workspace-toolbar-wrapper">
-      {/* Primary Toolbar */}
+    <div className="json-workspace-toolbar-wrapper" data-testid="json-toolbar">
+      {/* Primary Toolbar Row */}
       <div className="tool-toolbar json-main-toolbar">
         <div className="toolbar-group-left">
-          {/* View Mode Switcher Pills */}
+          {/* Primary Actions Group */}
+          <div className="toolbar-primary-group" role="group" aria-label="Primary JSON Actions">
+            <button
+              className={`btn ${activeAction === 'format' ? 'btn-primary' : 'btn-secondary'} btn-prominent-action`}
+              onClick={onFormat}
+              aria-label="Format and beautify JSON"
+              title="Format and indent JSON document"
+              data-testid="json-beautify-btn"
+            >
+              <Sparkles size={15} />
+              <span>Beautify</span>
+            </button>
+
+            <button
+              className={`btn ${activeAction === 'minify' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={onMinify}
+              aria-label="Minify JSON"
+              title="Compress and strip unnecessary whitespace"
+              data-testid="json-minify-btn"
+            >
+              <Minimize2 size={15} />
+              <span>Minify</span>
+            </button>
+
+            <button
+              className={`btn ${activeAction === 'validate' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={onValidate}
+              aria-label="Validate JSON syntax"
+              title="Validate JSON syntax and well-formedness"
+              data-testid="json-validate-btn"
+            >
+              <CheckCircle2 size={15} />
+              <span>Validate</span>
+            </button>
+          </div>
+
+          <div className="toolbar-vertical-divider" />
+
+          {/* View Mode Switcher Segmented Pills */}
           <div className="json-view-mode-pills" role="tablist" aria-label="JSON View Mode">
             <button
               role="tab"
@@ -185,150 +223,53 @@ export function JsonToolbar({
               <Network size={14} />
               <span>Visualize</span>
             </button>
-          </div>
-
-          <div className="toolbar-vertical-divider" />
-
-          {/* Primary Actions Group */}
-          <div className="toolbar-btn-group" role="group" aria-label="Primary JSON Actions">
             <button
-              className={`btn ${activeAction === 'format' ? 'btn-primary' : 'btn-secondary'} btn-prominent-action`}
-              onClick={onFormat}
-              aria-label="Format and beautify JSON"
-              title="Format and indent JSON document"
-              data-testid="json-beautify-btn"
+              role="tab"
+              aria-selected={viewMode === 'schema'}
+              className={`json-view-pill ${viewMode === 'schema' ? 'active' : ''}`}
+              onClick={() => onViewModeChange('schema')}
+              data-testid="view-mode-schema"
+              title="JSON Schema Generator & Validator Wizard"
             >
-              <Sparkles size={15} />
-              <span>Beautify</span>
+              <ShieldCheck size={14} />
+              <span>Schema Wizard</span>
             </button>
-
             <button
-              className={`btn ${activeAction === 'minify' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={onMinify}
-              aria-label="Minify JSON"
-              title="Compress and strip unnecessary whitespace"
-              data-testid="json-minify-btn"
+              role="tab"
+              aria-selected={viewMode === 'patch'}
+              className={`json-view-pill ${viewMode === 'patch' ? 'active' : ''}`}
+              onClick={() => onViewModeChange('patch')}
+              data-testid="view-mode-patch"
+              title="RFC 6902 JSON Patch & RFC 7386 Merge Patch"
             >
-              <Minimize2 size={15} />
-              <span>Minify</span>
+              <GitCompare size={14} />
+              <span>JSON Patch</span>
             </button>
-
-            <button
-              className={`btn ${activeAction === 'validate' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={onValidate}
-              aria-label="Validate JSON syntax"
-              title="Validate JSON syntax and well-formedness"
-              data-testid="json-validate-btn"
-            >
-              <CheckCircle2 size={15} />
-              <span>Validate</span>
-            </button>
-
-            <button
-              className="btn btn-secondary"
-              onClick={onOpenRepair}
-              title="Auto-repair common mistakes like single quotes, trailing commas, and unquoted keys"
-              data-testid="json-repair-btn"
-            >
-              <Wrench size={15} />
-              <span>Auto Repair</span>
-            </button>
-          </div>
-
-          <div className="toolbar-vertical-divider" />
-
-          {/* Secondary Actions Group */}
-          <div className="toolbar-btn-group" role="group" aria-label="Secondary JSON Actions">
-            <button
-              className="btn btn-secondary"
-              onClick={onOpenTransform}
-              title="Transform JSON to CSV, XML, YAML, Flatten, Unflatten, Escape, or Sort"
-              data-testid="json-transform-btn"
-            >
-              <ArrowRightLeft size={15} />
-              <span>Transform</span>
-            </button>
-
-            <button
-              className={`btn ${isJsonPathOpen ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={onToggleJsonPath}
-              title="Toggle JSONPath query search panel"
-              data-testid="json-path-toggle-btn"
-            >
-              <Terminal size={15} />
-              <span>JSONPath</span>
-            </button>
-
-            <button
-              className="btn btn-secondary"
-              onClick={onOpenSchema}
-              title="Validate JSON against a JSON Schema"
-              data-testid="json-schema-btn"
-            >
-              <ShieldCheck size={15} />
-              <span>Schema</span>
-            </button>
-
-            <button
-              className="btn btn-secondary"
-              onClick={onOpenStats}
-              title="View detailed JSON metrics and statistics"
-              data-testid="json-stats-btn"
-            >
-              <BarChart3 size={15} />
-              <span>Stats</span>
-            </button>
-
-            {onOpenDiff && (
-              <button
-                className="btn btn-secondary"
-                onClick={onOpenDiff}
-                title="Compare and diff JSON documents"
-                data-testid="json-compare-btn"
-              >
-                <GitCompare size={15} />
-                <span>Compare</span>
-              </button>
-            )}
-
-            {onOpenCodeGen && (
-              <button
-                className="btn btn-secondary"
-                onClick={onOpenCodeGen}
-                title="Generate typed models and classes for 12 programming languages"
-                data-testid="json-codegen-btn"
-              >
-                <FileCode2 size={15} />
-                <span>Code Models</span>
-              </button>
-            )}
-
-            {onOpenMockData && (
-              <button
-                className="btn btn-secondary"
-                onClick={onOpenMockData}
-                title="Generate realistic synthetic mock data from sample JSON, Schema, or presets"
-                data-testid="json-mock-data-btn"
-              >
-                <Database size={15} />
-                <span>Mock Data</span>
-              </button>
-            )}
-
-            {onToggleJson5Mode && (
-              <button
-                className={`btn ${isJson5Mode ? 'btn-primary' : 'btn-secondary'}`}
-                onClick={onToggleJson5Mode}
-                title="Toggle JSON5 syntax support (comments, unquoted keys, trailing commas, hex)"
-                data-testid="json5-mode-btn"
-              >
-                <span>JSON5 {isJson5Mode ? 'ON' : 'OFF'}</span>
-              </button>
-            )}
           </div>
         </div>
 
+        {/* Right: Quick Action Modals, File Upload & Reset */}
         <div className="toolbar-group-right">
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={onOpenRepair}
+            title="Auto-repair common mistakes like single quotes, trailing commas, and unquoted keys"
+            data-testid="json-repair-btn"
+          >
+            <Wrench size={14} />
+            <span>Auto Repair</span>
+          </button>
+
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={onOpenTransform}
+            title="Transform JSON to CSV, XML, YAML, Flatten, Unflatten, Escape, or Sort"
+            data-testid="json-transform-btn"
+          >
+            <ArrowRightLeft size={14} />
+            <span>Transform</span>
+          </button>
+
           <FileDropzone onFileLoaded={onFileLoaded} acceptExtensions={['.json', '.txt']} />
           <ResetButton onReset={onReset} />
         </div>
@@ -337,6 +278,88 @@ export function JsonToolbar({
       {/* Secondary Options Strip */}
       <div className="json-secondary-toolbar">
         <div className="secondary-group-left">
+          {/* Secondary Modals Group */}
+          <div className="toolbar-sub-group" role="group" aria-label="Extended Features">
+            <button
+              className={`btn-subtle-toggle ${isJsonPathOpen ? 'active' : ''}`}
+              onClick={onToggleJsonPath}
+              title="Toggle JSONPath query search panel"
+              data-testid="json-path-toggle-btn"
+            >
+              <Terminal size={13} style={{ display: 'inline', marginRight: '4px' }} />
+              <span>JSONPath</span>
+            </button>
+
+            <button
+              className="btn-subtle-toggle"
+              onClick={onOpenSchema}
+              title="Validate JSON against a JSON Schema"
+              data-testid="json-schema-btn"
+            >
+              <ShieldCheck size={13} style={{ display: 'inline', marginRight: '4px' }} />
+              <span>Schema</span>
+            </button>
+
+            <button
+              className="btn-subtle-toggle"
+              onClick={onOpenStats}
+              title="View detailed JSON metrics and statistics"
+              data-testid="json-stats-btn"
+            >
+              <BarChart3 size={13} style={{ display: 'inline', marginRight: '4px' }} />
+              <span>Stats</span>
+            </button>
+
+            {onOpenDiff && (
+              <button
+                className="btn-subtle-toggle"
+                onClick={onOpenDiff}
+                title="Compare and diff JSON documents"
+                data-testid="json-compare-btn"
+              >
+                <GitCompare size={13} style={{ display: 'inline', marginRight: '4px' }} />
+                <span>Compare</span>
+              </button>
+            )}
+
+            {onOpenCodeGen && (
+              <button
+                className="btn-subtle-toggle"
+                onClick={onOpenCodeGen}
+                title="Generate typed models and classes for 12 programming languages"
+                data-testid="json-codegen-btn"
+              >
+                <FileCode2 size={13} style={{ display: 'inline', marginRight: '4px' }} />
+                <span>Code Models</span>
+              </button>
+            )}
+
+            {onOpenMockData && (
+              <button
+                className="btn-subtle-toggle"
+                onClick={onOpenMockData}
+                title="Generate realistic synthetic mock data from sample JSON, Schema, or presets"
+                data-testid="json-mock-data-btn"
+              >
+                <Database size={13} style={{ display: 'inline', marginRight: '4px' }} />
+                <span>Mock Data</span>
+              </button>
+            )}
+
+            {onToggleJson5Mode && (
+              <button
+                className={`btn-subtle-toggle ${isJson5Mode ? 'active' : ''}`}
+                onClick={onToggleJson5Mode}
+                title="Toggle JSON5 syntax support (comments, unquoted keys, trailing commas, hex)"
+                data-testid="json5-mode-btn"
+              >
+                <span>JSON5 {isJson5Mode ? 'ON' : 'OFF'}</span>
+              </button>
+            )}
+          </div>
+
+          <div className="toolbar-vertical-divider" />
+
           {/* Indent Selector */}
           <div className="options-control-group">
             <label htmlFor="json-indent-select">Indent:</label>
