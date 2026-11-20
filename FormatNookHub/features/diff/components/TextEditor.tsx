@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useRef } from 'react';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Copy, Check, Trash2 } from 'lucide-react';
 import { FileDropzone } from '@/components/workspace/FileDropzone';
 import { formatByteSize } from '@/lib/file-reader';
+import { useClipboard } from '@/hooks/useClipboard';
 
 interface TextEditorProps {
   id: string;
@@ -19,6 +20,7 @@ interface TextEditorProps {
   formatBadge?: string;
   acceptExtensions?: string[];
   className?: string;
+  onClear?: () => void;
 }
 
 export function TextEditor({
@@ -35,10 +37,12 @@ export function TextEditor({
   formatBadge,
   acceptExtensions = ['.txt', '.json', '.xml', '.yaml', '.yml', '.csv', '.sql', '.html', '.css', '.js', '.ts', '.md', '.diff'],
   className,
+  onClear,
 }: TextEditorProps) {
   const localRef = useRef<HTMLTextAreaElement>(null);
   const textareaRef = scrollRef || localRef;
   const gutterRef = useRef<HTMLDivElement>(null);
+  const { copied, copy } = useClipboard();
 
   const lines = (value || '').split('\n');
   const lineCount = Math.max(lines.length, 1);
@@ -76,10 +80,13 @@ export function TextEditor({
   };
 
   return (
-    <div className={`editor-panel diff-editor-panel ${error ? 'panel-has-error' : ''} ${className || ''}`} data-testid={testId || `editor-${id}`}>
+    <div
+      className={`editor-panel diff-editor-panel ${error ? 'panel-has-error' : ''} ${className || ''}`}
+      data-testid={testId || `editor-${id}`}
+    >
       <div className="panel-header">
         <div className="panel-title-group">
-          <span className="diff-editor-title">{title}</span>
+          <span className="panel-title-text diff-editor-title">{title}</span>
           {formatBadge && (
             <span className="badge badge-accent diff-editor-format-badge">
               {formatBadge}
@@ -104,6 +111,28 @@ export function TextEditor({
             onFileLoaded={(content) => onChange(content)}
             acceptExtensions={acceptExtensions}
           />
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={() => copy(value)}
+            disabled={!value}
+            title={`Copy ${title}`}
+            aria-label={`Copy ${title}`}
+            data-testid={`btn-copy-${id}`}
+          >
+            {copied ? <Check size={14} color="var(--color-success)" /> : <Copy size={14} />}
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={() => (onClear ? onClear() : onChange(''))}
+            disabled={!value || readOnly}
+            title={`Clear ${title}`}
+            aria-label={`Clear ${title}`}
+            data-testid={`btn-clear-${id}`}
+          >
+            <Trash2 size={14} />
+          </button>
         </div>
       </div>
 

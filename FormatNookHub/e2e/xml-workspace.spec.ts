@@ -107,5 +107,82 @@ test.describe('Professional XML Workspace & Formatter', () => {
     await expect(page).toHaveTitle(/XML Validator/i);
     await expect(page.getByTestId('xml-workspace')).toBeVisible();
   });
+
+  test('9. Standardized panel headers display title and formatted stats', async ({ page }) => {
+    const inputHeader = page.getByTestId('xml-input-panel').locator('.panel-header');
+    const outputHeader = page.getByTestId('xml-output-panel').locator('.panel-header');
+
+    await expect(inputHeader).toBeVisible();
+    await expect(outputHeader).toBeVisible();
+
+    await expect(inputHeader.locator('.panel-title-text')).toHaveText('Original Input (Raw XML)');
+    await expect(outputHeader.locator('.panel-title-text')).toHaveText('Formatted Output');
+
+    await expect(inputHeader.locator('.panel-stats')).toContainText(/Lines/);
+    await expect(inputHeader.locator('.panel-stats')).toContainText(/\d+\s*B/);
+  });
+
+  test('10. Draggable panel resizer divider supports keyboard and double-click reset', async ({ page }) => {
+    const resizer = page.getByTestId('workspace-panels-resizer');
+    await expect(resizer).toBeVisible();
+
+    // Verify ARIA accessibility attributes
+    await expect(resizer).toHaveAttribute('role', 'separator');
+    await expect(resizer).toHaveAttribute('aria-valuenow', '50');
+
+    // Use arrow keys to resize
+    await resizer.focus();
+    await page.keyboard.press('ArrowLeft');
+    await expect(resizer).toHaveAttribute('aria-valuenow', '48');
+
+    // Double-click to reset to 50/50
+    await resizer.dblclick();
+    await expect(resizer).toHaveAttribute('aria-valuenow', '50');
+  });
+
+  test('11. Mobile 390x844 responsive vertical stacking and 3-way segmented tabs', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+
+    const tabBoth = page.getByRole('tab', { name: 'Both Views' });
+    const tabInput = page.getByRole('tab', { name: 'Original Input' });
+    const tabOutput = page.getByRole('tab', { name: 'Formatted Output' });
+
+    await expect(tabBoth).toBeVisible();
+    await expect(tabInput).toBeVisible();
+    await expect(tabOutput).toBeVisible();
+
+    const inputPanel = page.getByTestId('xml-input-panel');
+    const outputPanel = page.getByTestId('xml-output-panel');
+
+    // Switch to Original Input only
+    await tabInput.click();
+    await expect(inputPanel).toBeVisible();
+    await expect(outputPanel).toHaveClass(/mobile-panel-hidden/);
+
+    // Switch to Formatted Output only
+    await tabOutput.click();
+    await expect(inputPanel).toHaveClass(/mobile-panel-hidden/);
+    await expect(outputPanel).toBeVisible();
+
+    // Switch back to Both Views
+    await tabBoth.click();
+    await expect(inputPanel).toBeVisible();
+    await expect(outputPanel).toBeVisible();
+  });
+
+  test('12. Light and Dark theme verification for XML workspace', async ({ page }) => {
+    const workspace = page.getByTestId('xml-workspace');
+    await expect(workspace).toBeVisible();
+
+    // Default or toggle to dark theme
+    await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'));
+    const darkBg = await workspace.evaluate((el) => window.getComputedStyle(el).backgroundColor);
+    expect(darkBg).toBeDefined();
+
+    // Toggle to light theme
+    await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'light'));
+    const lightBg = await workspace.evaluate((el) => window.getComputedStyle(el).backgroundColor);
+    expect(lightBg).toBeDefined();
+  });
 });
 

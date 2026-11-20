@@ -304,3 +304,220 @@ export function encodeBasicAuth(username: string, password = ''): {
     fetchExample,
   };
 }
+
+/**
+ * URL Encoding (Component or Full URL) with UTF-8 support
+ */
+export function encodeUrlText(text: string, componentMode = true): EncodingResult {
+  if (!text) {
+    return { output: '', outputSize: 0, inputSize: 0, isValid: true, issues: [] };
+  }
+
+  try {
+    const encoded = componentMode ? encodeURIComponent(text) : encodeURI(text);
+    return {
+      output: encoded,
+      displayOutput: encoded,
+      outputSize: encoded.length,
+      inputSize: text.length,
+      isValid: true,
+      issues: [],
+    };
+  } catch (err: any) {
+    return {
+      output: '',
+      outputSize: 0,
+      inputSize: text.length,
+      isValid: false,
+      issues: [{ message: err.message || 'Failed to encode URL string.', severity: 'error' }],
+    };
+  }
+}
+
+/**
+ * URL Decoding with error safety for malformed percent-encoding
+ */
+export function decodeUrlText(encodedUrl: string): EncodingResult {
+  if (!encodedUrl) {
+    return { output: '', outputSize: 0, inputSize: 0, isValid: true, issues: [] };
+  }
+
+  try {
+    const decoded = decodeURIComponent(encodedUrl.replace(/\+/g, ' '));
+    return {
+      output: decoded,
+      displayOutput: decoded,
+      outputSize: new Blob([decoded]).size,
+      inputSize: encodedUrl.length,
+      isValid: true,
+      issues: [],
+    };
+  } catch (err: any) {
+    // Graceful partial decoding for malformed %-sequences
+    const partialDecoded = encodedUrl.replace(/(%[0-9a-fA-F]{2})+/g, (match) => {
+      try {
+        return decodeURIComponent(match);
+      } catch {
+        return match;
+      }
+    });
+
+    return {
+      output: partialDecoded,
+      displayOutput: partialDecoded,
+      outputSize: new Blob([partialDecoded]).size,
+      inputSize: encodedUrl.length,
+      isValid: false,
+      issues: [
+        {
+          message: `Malformed URL encoding encountered (${err.message || 'URI malformed'}). Partial recovery applied.`,
+          severity: 'error',
+        },
+      ],
+    };
+  }
+}
+
+/**
+ * Text to Hexadecimal string conversion
+ */
+export function encodeTextToHex(
+  text: string,
+  options: HexFormatOptions = { uppercase: true, grouping: 'space' }
+): EncodingResult {
+  if (!text) {
+    return { output: '', outputSize: 0, inputSize: 0, isValid: true, issues: [] };
+  }
+
+  const encoder = new TextEncoder();
+  const bytes = encoder.encode(text);
+  const hex = bytesToHex(bytes, options);
+
+  return {
+    output: hex,
+    displayOutput: hex,
+    outputSize: hex.length,
+    inputSize: bytes.length,
+    isValid: true,
+    issues: [],
+    rawBytes: bytes,
+  };
+}
+
+/**
+ * Hexadecimal to UTF-8 Text conversion
+ */
+export function decodeHexToText(hex: string): EncodingResult {
+  if (!hex.trim()) {
+    return { output: '', outputSize: 0, inputSize: 0, isValid: true, issues: [] };
+  }
+
+  const { bytes, isValid, error } = hexToBytes(hex);
+  if (!isValid) {
+    return {
+      output: '',
+      outputSize: 0,
+      inputSize: hex.length,
+      isValid: false,
+      issues: [{ message: error || 'Invalid hexadecimal string.', severity: 'error' }],
+    };
+  }
+
+  const decoder = new TextDecoder('utf-8', { fatal: false });
+  const text = decoder.decode(bytes);
+
+  return {
+    output: text,
+    displayOutput: text,
+    outputSize: new Blob([text]).size,
+    inputSize: hex.length,
+    isValid: true,
+    issues: [],
+    rawBytes: bytes,
+  };
+}
+
+const HTML_NAMED_ENTITIES: Record<string, string> = {
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&#39;',
+};
+
+const HTML_REVERSE_ENTITIES: Record<string, string> = {
+  amp: '&',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  apos: "'",
+  nbsp: '\u00A0',
+  copy: '©',
+  reg: '®',
+  trade: '™',
+  euro: '€',
+  pound: '£',
+  yen: '¥',
+  cent: '¢',
+  deg: '°',
+  plusmn: '±',
+  times: '×',
+  divide: '÷',
+};
+
+/**
+ * HTML Entities Encoding (Named or Numeric)
+ */
+export function encodeHtmlEntities(text: string, mode: 'named' | 'numeric' = 'named'): EncodingResult {
+  if (!text) {
+    return { output: '', outputSize: 0, inputSize: 0, isValid: true, issues: [] };
+  }
+
+  let encoded: string;
+  if (mode === 'numeric') {
+    encoded = text.replace(/[&<>"']/g, (ch) => `&#${ch.charCodeAt(0)};`);
+  } else {
+    encoded = text.replace(/[&<>"']/g, (ch) => HTML_NAMED_ENTITIES[ch] || ch);
+  }
+
+  return {
+    output: encoded,
+    displayOutput: encoded,
+    outputSize: encoded.length,
+    inputSize: text.length,
+    isValid: true,
+    issues: [],
+  };
+}
+
+/**
+ * HTML Entities Decoding (Named, Numeric Decimal, and Hex)
+ */
+export function decodeHtmlEntities(text: string): EncodingResult {
+  if (!text) {
+    return { output: '', outputSize: 0, inputSize: 0, isValid: true, issues: [] };
+  }
+
+  const decoded = text
+    .replace(/&#x([0-9a-fA-F]+);/g, (match, hex) => {
+      const code = parseInt(hex, 16);
+      return isNaN(code) ? match : String.fromCodePoint(code);
+    })
+    .replace(/&#([0-9]+);/g, (match, dec) => {
+      const code = parseInt(dec, 10);
+      return isNaN(code) ? match : String.fromCodePoint(code);
+    })
+    .replace(/&([a-zA-Z]+);/g, (match, entity) => {
+      const lower = entity.toLowerCase();
+      return HTML_REVERSE_ENTITIES[lower] || match;
+    });
+
+  return {
+    output: decoded,
+    displayOutput: decoded,
+    outputSize: new Blob([decoded]).size,
+    inputSize: text.length,
+    isValid: true,
+    issues: [],
+  };
+}

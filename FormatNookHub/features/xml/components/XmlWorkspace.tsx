@@ -389,12 +389,17 @@ export function XmlWorkspace({ initialMode = 'format' }: XmlWorkspaceProps) {
             }
           >
             {/* Input Panel */}
-            <div className={`editor-panel ${mobileTab === 'output' ? 'mobile-panel-hidden' : ''}`} data-testid="xml-input-panel">
+            <div
+              className={`editor-panel ${mobileTab === 'output' ? 'mobile-panel-hidden' : ''}`}
+              data-testid="xml-input-panel"
+            >
               <div className="panel-header">
                 <div className="panel-title-group">
-                  <span>Original Input (Raw XML)</span>
-                  <span className="panel-stats">
-                    {inputLines.toLocaleString()} {inputLines === 1 ? 'Line' : 'Lines'} &bull; {formatByteSize(inputBytes)}
+                  <span className="panel-title-text">Original Input (Raw XML)</span>
+                  <span className="panel-stats" aria-label="Input statistics">
+                    <span className="panel-stat-item">{inputLines.toLocaleString()} {inputLines === 1 ? 'Line' : 'Lines'}</span>
+                    <span className="panel-stat-sep">&bull;</span>
+                    <span className="panel-stat-item">{formatByteSize(inputBytes)}</span>
                   </span>
                 </div>
                 <div className="panel-actions">
@@ -417,10 +422,10 @@ export function XmlWorkspace({ initialMode = 'format' }: XmlWorkspaceProps) {
 
             {/* Draggable Resizer Gutter */}
             <div
-              className="splitter-gutter workspace-panels-resizer"
+              className="workspace-split-resizer"
               role="separator"
               aria-orientation="vertical"
-              aria-label="Panel size ratio divider"
+              aria-label="Resize input and output panels"
               aria-valuenow={panelsRatio}
               aria-valuemin={20}
               aria-valuemax={80}
@@ -429,58 +434,65 @@ export function XmlWorkspace({ initialMode = 'format' }: XmlWorkspaceProps) {
               onKeyDown={handleResizerKeyDown}
               onDoubleClick={handleResetRatio}
               title="Drag or use Left/Right arrows to resize panels • Double-click to reset (50/50)"
-              data-testid="panel-resizer"
-            />
+              data-testid="workspace-panels-resizer"
+            >
+              <div className="workspace-split-resizer-line" />
+            </div>
 
             {/* Output Panel */}
-            <div className={`editor-panel ${mobileTab === 'input' ? 'mobile-panel-hidden' : ''}`} data-testid="xml-output-panel">
-            <div className="panel-header">
-              <div className="panel-title-group">
-                <span>Formatted Output</span>
-                <span className="panel-stats">
-                  {outputLines.toLocaleString()} {outputLines === 1 ? 'Line' : 'Lines'} &bull; {formatByteSize(outputBytes)}
-                </span>
+            <div
+              className={`editor-panel ${mobileTab === 'input' ? 'mobile-panel-hidden' : ''}`}
+              data-testid="xml-output-panel"
+            >
+              <div className="panel-header">
+                <div className="panel-title-group">
+                  <span className="panel-title-text">Formatted Output</span>
+                  <span className="panel-stats" aria-label="Output statistics">
+                    <span className="panel-stat-item">{outputLines.toLocaleString()} {outputLines === 1 ? 'Line' : 'Lines'}</span>
+                    <span className="panel-stat-sep">&bull;</span>
+                    <span className="panel-stat-item">{formatByteSize(outputBytes)}</span>
+                  </span>
+                </div>
+                <div className="panel-actions">
+                  <ShareButton
+                    getPayload={() => createXmlSharePayload(output)}
+                    disabled={!output}
+                  />
+                  <CopyButton text={output} label="Copy Output" />
+                  <DownloadButton
+                    content={output}
+                    fileName="formatted.xml"
+                    mimeType="application/xml"
+                  />
+                </div>
               </div>
-              <div className="panel-actions">
-                <ShareButton
-                  getPayload={() => createXmlSharePayload(output)}
-                  disabled={!output}
-                />
-                <CopyButton text={output} label="Copy Output" />
-                <DownloadButton
-                  content={output}
-                  fileName="formatted.xml"
-                  mimeType="application/xml"
+              <div className="panel-body">
+                <CodeEditor
+                  value={output}
+                  readOnly
+                  language="xml"
+                  placeholder="Formatted XML will appear here..."
+                  useMonaco={useMonaco}
+                  fontSize={fontSize}
+                  wordWrap={wordWrap}
+                  footerLabel="Formatted XML"
                 />
               </div>
-            </div>
-            <div className="panel-body">
-              <CodeEditor
-                value={output}
-                readOnly
-                language="xml"
-                placeholder="Formatted XML will appear here..."
-                useMonaco={useMonaco}
-                fontSize={fontSize}
-                wordWrap={wordWrap}
-                footerLabel="Formatted XML"
-              />
             </div>
           </div>
-        </div>
         </>
       )}
 
       {/* Visual Tree View */}
       {viewMode === 'tree' && (
-        <div style={{ flex: 1, minHeight: '520px', border: '1px solid var(--border-subtle)', borderRadius: '6px', overflow: 'hidden' }}>
+        <div className="json-structured-view-container" data-testid="xml-tree-view-wrapper">
           <XmlTreeView rootNode={parsedTree} />
         </div>
       )}
 
       {/* Structured Elements Grid */}
       {viewMode === 'structured' && (
-        <div style={{ flex: 1, minHeight: '520px', border: '1px solid var(--border-subtle)', borderRadius: '6px', overflow: 'hidden' }}>
+        <div className="json-structured-view-container" data-testid="xml-structured-view-wrapper">
           <XmlStructuredView rootNode={parsedTree} />
         </div>
       )}

@@ -6,6 +6,7 @@ import { DiffLineItem, InlineDiffToken } from '../types/diff.types';
 interface DiffLineProps {
   item: DiffLineItem;
   viewMode: 'side-by-side' | 'inline';
+  isActive?: boolean;
 }
 
 function renderTokens(tokens?: InlineDiffToken[], fallbackText?: string) {
@@ -36,10 +37,16 @@ function renderTokens(tokens?: InlineDiffToken[], fallbackText?: string) {
   );
 }
 
-export function DiffLine({ item, viewMode }: DiffLineProps) {
+export function DiffLine({ item, viewMode, isActive = false }: DiffLineProps) {
+  const activeClass = isActive ? ' diff-row-active-focus' : '';
+
   if (viewMode === 'side-by-side') {
     return (
-      <div className={`diff-line-row diff-row-${item.type}`} data-testid={`diff-line-${item.id}`}>
+      <div
+        id={`diff-line-${item.id}`}
+        className={`diff-line-row diff-row-${item.type}${activeClass}`}
+        data-testid={`diff-line-${item.id}`}
+      >
         {/* Left column (Original) */}
         <div className={`diff-pane-cell diff-pane-left ${item.type === 'insert' ? 'diff-cell-empty' : ''}`}>
           <div className="diff-gutter" aria-hidden="true">
@@ -73,7 +80,11 @@ export function DiffLine({ item, viewMode }: DiffLineProps) {
   if (item.type === 'modify') {
     return (
       <>
-        <div className="diff-line-row diff-row-delete" data-testid={`diff-line-${item.id}-del`}>
+        <div
+          id={`diff-line-${item.id}`}
+          className={`diff-line-row diff-row-delete${activeClass}`}
+          data-testid={`diff-line-${item.id}-del`}
+        >
           <div className="diff-gutter-group" aria-hidden="true">
             <span className="diff-gutter">{item.originalLineNumber ?? ''}</span>
             <span className="diff-gutter diff-gutter-empty" />
@@ -83,7 +94,10 @@ export function DiffLine({ item, viewMode }: DiffLineProps) {
             {renderTokens(item.originalTokens, item.originalContent)}
           </div>
         </div>
-        <div className="diff-line-row diff-row-insert" data-testid={`diff-line-${item.id}-ins`}>
+        <div
+          className={`diff-line-row diff-row-insert${activeClass}`}
+          data-testid={`diff-line-${item.id}-ins`}
+        >
           <div className="diff-gutter-group" aria-hidden="true">
             <span className="diff-gutter diff-gutter-empty" />
             <span className="diff-gutter">{item.modifiedLineNumber ?? ''}</span>
@@ -101,7 +115,11 @@ export function DiffLine({ item, viewMode }: DiffLineProps) {
   const isDelete = item.type === 'delete';
 
   return (
-    <div className={`diff-line-row diff-row-${item.type}`} data-testid={`diff-line-${item.id}`}>
+    <div
+      id={`diff-line-${item.id}`}
+      className={`diff-line-row diff-row-${item.type}${activeClass}`}
+      data-testid={`diff-line-${item.id}`}
+    >
       <div className="diff-gutter-group" aria-hidden="true">
         <span className="diff-gutter">{isInsert ? '' : (item.originalLineNumber ?? '')}</span>
         <span className="diff-gutter">{isDelete ? '' : (item.modifiedLineNumber ?? '')}</span>
@@ -119,4 +137,3 @@ export function DiffLine({ item, viewMode }: DiffLineProps) {
     </div>
   );
 }
-

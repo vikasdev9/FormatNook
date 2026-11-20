@@ -159,55 +159,43 @@ export function YamlWorkspace({ initialMode = 'format' }: YamlWorkspaceProps) {
 
       setOutput(result.output);
       setValidationState({ isValid: result.isValid, issues: result.issues });
-      setStatusMessage(result.isValid ? 'YAML Beautified' : 'Syntax Error');
+      setStatusMessage(result.isValid ? 'YAML Beautified' : 'Syntax Issues Detected');
       setStatusType(result.isValid ? 'success' : 'error');
     },
     [input, indent, quoteStyle, lineWidth, selectedDocIndex, docInfos]
   );
 
-  // Primary Action: Minify
+  // Primary Action: Minify (Flow Style)
   const handleMinify = useCallback(() => {
     setActiveAction('minify');
-    const targetText = selectedDocIndex !== 'all' && docInfos[selectedDocIndex]
-      ? docInfos[selectedDocIndex].raw
-      : input;
-
-    const result = minifyYaml(targetText);
+    const result = minifyYaml(input);
     setOutput(result.output);
     setValidationState({ isValid: result.isValid, issues: result.issues });
-    setStatusMessage(result.isValid ? 'YAML Minified' : 'Minify Failed');
+    setStatusMessage(result.isValid ? 'YAML Minified (Flow Style)' : 'Minify Error');
     setStatusType(result.isValid ? 'success' : 'error');
-  }, [input, selectedDocIndex, docInfos]);
+  }, [input]);
 
   // Primary Action: Validate
   const handleValidate = useCallback(() => {
     setActiveAction('validate');
-    const targetText = selectedDocIndex !== 'all' && docInfos[selectedDocIndex]
-      ? docInfos[selectedDocIndex].raw
-      : input;
-
-    const result = validateYaml(targetText);
+    const result = validateYaml(input);
     setValidationState({ isValid: result.isValid, issues: result.issues });
-    setStatusMessage(result.isValid ? 'Valid YAML' : 'Validation Issues Found');
+    setStatusMessage(result.isValid ? 'Valid YAML Syntax' : 'YAML Syntax Errors');
     setStatusType(result.isValid ? 'success' : 'error');
     if (result.isValid && !output) {
-      setOutput(targetText);
+      setOutput(input);
     }
-  }, [input, output, selectedDocIndex, docInfos]);
+  }, [input, output]);
 
-  // Action: Collapse into One-Line
+  // Action: Single-line expression
   const handleOneLine = useCallback(() => {
-    const targetText = selectedDocIndex !== 'all' && docInfos[selectedDocIndex]
-      ? docInfos[selectedDocIndex].raw
-      : input;
-
-    const oneLined = oneLineYaml(targetText);
+    const oneLined = oneLineYaml(input);
     setOutput(oneLined);
     setStatusMessage('One-Line Converted');
     setStatusType('success');
-  }, [input, selectedDocIndex, docInfos]);
+  }, [input]);
 
-  // Action: Escape string
+  // Action: Escape string literal
   const handleEscape = useCallback(() => {
     const escaped = escapeYaml(input);
     setOutput(escaped);
@@ -215,45 +203,46 @@ export function YamlWorkspace({ initialMode = 'format' }: YamlWorkspaceProps) {
     setStatusType('success');
   }, [input]);
 
-  // Action: Unescape string
+  // Action: Unescape string literal
   const handleUnescape = useCallback(() => {
     const unescaped = unescapeYaml(input);
     setInput(unescaped);
     handleFormat(unescaped);
   }, [input, handleFormat]);
 
+  // Tree View in-place editing
+  const handleEditTreeValue = useCallback(
+    (path: string, newValue: any, docIndex: number) => {
+      const source = input;
+      const updated = updateYamlValueAtPath(source, path, newValue, docIndex);
+      setInput(updated);
+      handleFormat(updated);
+    },
+    [input, handleFormat]
+  );
+
   // Reset workspace
   const handleReset = () => {
     setInput('');
     setOutput('');
-    setSelectedDocIndex('all');
     setValidationState({ isValid: null, issues: [] });
     setStatusMessage('Ready');
     setStatusType('ready');
   };
 
-  // File loaded via dropzone
+  // Dropzone load
   const handleFileLoaded = (content: string) => {
     setInput(content);
-    setSelectedDocIndex('all');
     handleFormat(content, indent);
   };
 
-  // Sample loaded from presets
+  // Sample load
   const handleSelectSample = (sampleData: string) => {
     setInput(sampleData);
-    setSelectedDocIndex('all');
     handleFormat(sampleData, indent);
   };
 
-  // Inline edit in Tree View
-  const handleEditTreeValue = (path: string, newValue: any, docIdx: number) => {
-    const updatedYaml = updateYamlValueAtPath(input, path, newValue, docIdx);
-    setInput(updatedYaml);
-    handleFormat(updatedYaml, indent);
-  };
-
-  // Modal Stack Management
+  // Modal Shortcutting
   useModalShortcuts('yaml-converter-modal', isConverterOpen, () => setIsConverterOpen(false));
   useModalShortcuts('yaml-inspector-modal', isInspectorOpen, () => setIsInspectorOpen(false));
   useModalShortcuts('yaml-diff-modal', isDiffOpen, () => setIsDiffOpen(false));
@@ -459,13 +448,23 @@ export function YamlWorkspace({ initialMode = 'format' }: YamlWorkspaceProps) {
             }
           >
             {/* Input Panel */}
-            <div className={`editor-panel ${mobileTab === 'output' ? 'mobile-panel-hidden' : ''}`} data-testid="yaml-input-panel">
+            <div
+              className={`editor-panel ${mobileTab === 'output' ? 'mobile-panel-hidden' : ''}`}
+              data-testid="yaml-input-panel"
+            >
               <div className="panel-header">
                 <div className="panel-title-group">
-                  <span>Original Input (Raw YAML)</span>
-                  <span className="panel-stats">
-                    {inputLines.toLocaleString()} {inputLines === 1 ? 'Line' : 'Lines'} &bull; {formatByteSize(inputBytes)}
-                    {documentCount > 1 && ` &bull; ${documentCount} docs`}
+                  <span className="panel-title-text">Original Input (Raw YAML)</span>
+                  <span className="panel-stats" aria-label="Input statistics">
+                    <span className="panel-stat-item">{inputLines.toLocaleString()} {inputLines === 1 ? 'Line' : 'Lines'}</span>
+                    <span className="panel-stat-sep">&bull;</span>
+                    <span className="panel-stat-item">{formatByteSize(inputBytes)}</span>
+                    {documentCount > 1 && (
+                      <>
+                        <span className="panel-stat-sep">&bull;</span>
+                        <span className="panel-stat-item">{documentCount} docs</span>
+                      </>
+                    )}
                   </span>
                 </div>
                 <div className="panel-actions">
@@ -488,10 +487,10 @@ export function YamlWorkspace({ initialMode = 'format' }: YamlWorkspaceProps) {
 
             {/* Draggable Resizer Gutter */}
             <div
-              className="splitter-gutter workspace-panels-resizer"
+              className="workspace-split-resizer"
               role="separator"
               aria-orientation="vertical"
-              aria-label="Panel size ratio divider"
+              aria-label="Resize input and output panels"
               aria-valuenow={panelsRatio}
               aria-valuemin={20}
               aria-valuemax={80}
@@ -500,16 +499,23 @@ export function YamlWorkspace({ initialMode = 'format' }: YamlWorkspaceProps) {
               onKeyDown={handleResizerKeyDown}
               onDoubleClick={handleResetRatio}
               title="Drag or use Left/Right arrows to resize panels • Double-click to reset (50/50)"
-              data-testid="panel-resizer"
-            />
+              data-testid="workspace-panels-resizer"
+            >
+              <div className="workspace-split-resizer-line" />
+            </div>
 
             {/* Output Panel */}
-            <div className={`editor-panel ${mobileTab === 'input' ? 'mobile-panel-hidden' : ''}`} data-testid="yaml-output-panel">
+            <div
+              className={`editor-panel ${mobileTab === 'input' ? 'mobile-panel-hidden' : ''}`}
+              data-testid="yaml-output-panel"
+            >
               <div className="panel-header">
                 <div className="panel-title-group">
-                  <span>Standardized Output</span>
-                  <span className="panel-stats">
-                    {outputLines.toLocaleString()} {outputLines === 1 ? 'Line' : 'Lines'} &bull; {formatByteSize(outputBytes)}
+                  <span className="panel-title-text">Standardized Output</span>
+                  <span className="panel-stats" aria-label="Output statistics">
+                    <span className="panel-stat-item">{outputLines.toLocaleString()} {outputLines === 1 ? 'Line' : 'Lines'}</span>
+                    <span className="panel-stat-sep">&bull;</span>
+                    <span className="panel-stat-item">{formatByteSize(outputBytes)}</span>
                   </span>
                 </div>
                 <div className="panel-actions">
@@ -544,7 +550,7 @@ export function YamlWorkspace({ initialMode = 'format' }: YamlWorkspaceProps) {
 
       {/* Visual Tree View */}
       {viewMode === 'tree' && (
-        <div style={{ flex: 1, minHeight: '520px', border: '1px solid var(--border-subtle)', borderRadius: '6px', overflow: 'hidden' }}>
+        <div className="json-structured-view-container" data-testid="yaml-tree-view-wrapper">
           <YamlTreeView
             nodes={treeData.rootNodes}
             onEditValue={handleEditTreeValue}
@@ -554,7 +560,7 @@ export function YamlWorkspace({ initialMode = 'format' }: YamlWorkspaceProps) {
 
       {/* Structured Multi-Document Grid */}
       {viewMode === 'structured' && (
-        <div style={{ flex: 1, minHeight: '520px', border: '1px solid var(--border-subtle)', borderRadius: '6px', overflow: 'hidden' }}>
+        <div className="json-structured-view-container" data-testid="yaml-structured-view-wrapper">
           <YamlStructuredView yamlInput={output || input} />
         </div>
       )}

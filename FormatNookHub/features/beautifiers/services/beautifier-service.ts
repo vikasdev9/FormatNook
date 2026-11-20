@@ -1,5 +1,28 @@
 import { format as formatSqlString } from 'sql-formatter';
-import { IndentOption, ToolExecutionResult } from '@/types/tool';
+import { IndentOption, ToolExecutionResult, ValidationIssue } from '@/types/tool';
+
+export type BeautifierLanguage = 'html' | 'css' | 'javascript' | 'sql';
+
+export interface SqlFormatOptions {
+  indent?: IndentOption;
+  keywordCase?: 'upper' | 'lower' | 'preserve';
+}
+
+export interface JsFormatOptions {
+  indent?: IndentOption;
+  quotes?: 'as-is' | 'single' | 'double';
+  semicolons?: 'always' | 'as-is';
+}
+
+export interface CssFormatOptions {
+  indent?: IndentOption;
+  preserveComments?: boolean;
+}
+
+export interface HtmlFormatOptions {
+  indent?: IndentOption;
+  preserveComments?: boolean;
+}
 
 function getIndentSpaces(indent: IndentOption): string {
   if (indent === 'tab') return '\t';
@@ -10,7 +33,10 @@ function getIndentSpaces(indent: IndentOption): string {
 /**
  * Formats SQL with capitalized keywords and structured clauses.
  */
-export function formatSql(input: string, indent: IndentOption = '2'): ToolExecutionResult {
+export function formatSql(
+  input: string,
+  indentOrOptions: IndentOption | SqlFormatOptions = '2'
+): ToolExecutionResult {
   const start = performance.now();
   const inputSize = new Blob([input]).size;
 
@@ -18,12 +44,19 @@ export function formatSql(input: string, indent: IndentOption = '2'): ToolExecut
     return { output: '', isValid: false, issues: [{ message: 'Input is empty.', severity: 'warning' }] };
   }
 
+  const options: SqlFormatOptions =
+    typeof indentOrOptions === 'object'
+      ? indentOrOptions
+      : { indent: indentOrOptions, keywordCase: 'upper' };
+  const indent = options.indent || '2';
+  const keywordCase = options.keywordCase || 'upper';
+
   try {
     const formatted = formatSqlString(input, {
       language: 'sql',
       tabWidth: indent === '4' ? 4 : 2,
       useTabs: indent === 'tab',
-      keywordCase: 'upper',
+      keywordCase,
     });
 
     const outputSize = new Blob([formatted]).size;
@@ -136,13 +169,23 @@ export function tokenizeHtml(input: string): string[] {
 /**
  * Formats HTML markup with hierarchical indentation and quote-aware tag parsing.
  */
-export function formatHtml(input: string, indent: IndentOption = '2'): ToolExecutionResult {
+export function formatHtml(
+  input: string,
+  indentOrOptions: IndentOption | HtmlFormatOptions = '2'
+): ToolExecutionResult {
   const start = performance.now();
   const inputSize = new Blob([input]).size;
 
   if (!input || !input.trim()) {
     return { output: '', isValid: false, issues: [{ message: 'Input is empty.', severity: 'warning' }] };
   }
+
+  const options: HtmlFormatOptions =
+    typeof indentOrOptions === 'object'
+      ? indentOrOptions
+      : { indent: indentOrOptions, preserveComments: true };
+  const indent = options.indent || '2';
+  const preserveComments = options.preserveComments !== false;
 
   try {
     const indentStr = getIndentSpaces(indent);
@@ -151,7 +194,8 @@ export function formatHtml(input: string, indent: IndentOption = '2'): ToolExecu
       'link', 'meta', 'param', 'source', 'track', 'wbr', '!doctype'
     ]);
 
-    const tokens = tokenizeHtml(input);
+    const rawTokens = tokenizeHtml(input);
+    const tokens = preserveComments ? rawTokens : rawTokens.filter((t) => !t.startsWith('<!--'));
 
     let depth = 0;
     let formatted = '';
@@ -208,7 +252,10 @@ export function formatHtml(input: string, indent: IndentOption = '2'): ToolExecu
 /**
  * Formats CSS rules, properties, and declarations.
  */
-export function formatCss(input: string, indent: IndentOption = '2'): ToolExecutionResult {
+export function formatCss(
+  input: string,
+  indentOrOptions: IndentOption | CssFormatOptions = '2'
+): ToolExecutionResult {
   const start = performance.now();
   const inputSize = new Blob([input]).size;
 
@@ -216,11 +263,23 @@ export function formatCss(input: string, indent: IndentOption = '2'): ToolExecut
     return { output: '', isValid: false, issues: [{ message: 'Input is empty.', severity: 'warning' }] };
   }
 
+  const options: CssFormatOptions =
+    typeof indentOrOptions === 'object'
+      ? indentOrOptions
+      : { indent: indentOrOptions, preserveComments: true };
+  const indent = options.indent || '2';
+  const preserveComments = options.preserveComments !== false;
+
   try {
     const indentStr = getIndentSpaces(indent);
 
+    let cleanInput = input;
+    if (!preserveComments) {
+      cleanInput = cleanInput.replace(/\/\*[\s\S]*?\*\//g, '');
+    }
+
     // Normalize spacing around braces, semicolons, and colons
-    let clean = input
+    let clean = cleanInput
       .replace(/\s*\{\s*/g, ' {\n')
       .replace(/\s*:\s*/g, ': ')
       .replace(/\s*;\s*/g, ';\n')
@@ -434,7 +493,7 @@ function tokenizeJavascript(code: string): JsToken[] {
   return tokens;
 }
 
-function formatJsTokens(tokens: JsToken[], indentStr: string): string {
+function formatJsTokens(tokens: JsToken[], indentStr: string, options?: JsFormatOptions): string {
   let output = '';
   let depth = 0;
   let parenDepth = 0;
@@ -442,10 +501,28 @@ function formatJsTokens(tokens: JsToken[], indentStr: string): string {
   const forParenStack: number[] = [];
   let atLineStart = true;
   let prevToken: JsToken | null = null;
+  const quotesOption = options?.quotes || 'as-is';
 
   for (let idx = 0; idx < tokens.length; idx++) {
-    const t = tokens[idx];
+    const rawT = tokens[idx];
     const nextToken: JsToken | null = idx + 1 < tokens.length ? tokens[idx + 1] : null;
+
+    // Quote conversion if requested
+    let tokenValue = rawT.value;
+    if (rawT.type === 'string' && quotesOption !== 'as-is') {
+      if (quotesOption === 'single' && tokenValue.startsWith('"') && tokenValue.endsWith('"')) {
+        const inner = tokenValue.slice(1, -1);
+        if (!inner.includes("'")) {
+          tokenValue = `'${inner}'`;
+        }
+      } else if (quotesOption === 'double' && tokenValue.startsWith("'") && tokenValue.endsWith("'")) {
+        const inner = tokenValue.slice(1, -1);
+        if (!inner.includes('"')) {
+          tokenValue = `"${inner}"`;
+        }
+      }
+    }
+    const t: JsToken = { type: rawT.type, value: tokenValue };
 
     // Handle Opening Brace {
     if (t.value === '{') {
@@ -653,7 +730,10 @@ function formatJsTokens(tokens: JsToken[], indentStr: string): string {
  * Formats JavaScript code with state-aware tokenization and indentation.
  * Correctly preserves strings with semicolons/braces, regex literals, and for (...) headers.
  */
-export function formatJavascript(input: string, indent: IndentOption = '2'): ToolExecutionResult {
+export function formatJavascript(
+  input: string,
+  indentOrOptions: IndentOption | JsFormatOptions = '2'
+): ToolExecutionResult {
   const start = performance.now();
   const inputSize = new Blob([input]).size;
 
@@ -661,10 +741,16 @@ export function formatJavascript(input: string, indent: IndentOption = '2'): Too
     return { output: '', isValid: false, issues: [{ message: 'Input is empty.', severity: 'warning' }] };
   }
 
+  const options: JsFormatOptions =
+    typeof indentOrOptions === 'object'
+      ? indentOrOptions
+      : { indent: indentOrOptions, quotes: 'as-is', semicolons: 'always' };
+  const indent = options.indent || '2';
+
   try {
     const indentStr = getIndentSpaces(indent);
     const tokens = tokenizeJavascript(input);
-    const finalOutput = formatJsTokens(tokens, indentStr);
+    const finalOutput = formatJsTokens(tokens, indentStr, options);
     const outputSize = new Blob([finalOutput]).size;
 
     return {
@@ -685,4 +771,389 @@ export function formatJavascript(input: string, indent: IndentOption = '2'): Too
       executionTimeMs: Math.round(performance.now() - start),
     };
   }
+}
+
+/**
+ * Minifies JavaScript code using state-aware tokenization to preserve literals and regex.
+ */
+export function minifyJavascript(input: string): ToolExecutionResult {
+  const start = performance.now();
+  const inputSize = new Blob([input]).size;
+
+  if (!input || !input.trim()) {
+    return { output: '', isValid: false, issues: [{ message: 'Input is empty.', severity: 'warning' }] };
+  }
+
+  try {
+    const tokens = tokenizeJavascript(input);
+    let output = '';
+    let prevToken: JsToken | null = null;
+
+    for (const t of tokens) {
+      if (t.type === 'comment') continue;
+
+      if (
+        prevToken &&
+        (prevToken.type === 'word' || prevToken.type === 'regex' || prevToken.type === 'string') &&
+        (t.type === 'word' || t.type === 'regex' || t.type === 'string')
+      ) {
+        output += ' ';
+      } else if (
+        prevToken &&
+        ((prevToken.value === '+' && t.value === '+') ||
+          (prevToken.value === '-' && t.value === '-'))
+      ) {
+        output += ' ';
+      }
+
+      output += t.value;
+      prevToken = t;
+    }
+
+    const finalOutput = output.trim();
+    const outputSize = new Blob([finalOutput]).size;
+
+    return {
+      output: finalOutput,
+      isValid: true,
+      issues: [],
+      inputSize,
+      outputSize,
+      executionTimeMs: Math.round(performance.now() - start),
+    };
+  } catch (err: any) {
+    return {
+      output: input,
+      isValid: false,
+      issues: [{ message: err?.message || 'Failed to minify JavaScript', severity: 'error' }],
+      inputSize,
+      outputSize: inputSize,
+      executionTimeMs: Math.round(performance.now() - start),
+    };
+  }
+}
+
+/**
+ * Minifies HTML by removing comments and collapsing whitespace while preserving pre/code elements.
+ */
+export function minifyHtml(input: string): ToolExecutionResult {
+  const start = performance.now();
+  const inputSize = new Blob([input]).size;
+
+  if (!input || !input.trim()) {
+    return { output: '', isValid: false, issues: [{ message: 'Input is empty.', severity: 'warning' }] };
+  }
+
+  try {
+    const tokens = tokenizeHtml(input);
+    let minified = '';
+    let inPre = false;
+
+    for (const token of tokens) {
+      if (/^<pre\b/i.test(token) || /^<code\b/i.test(token)) {
+        inPre = true;
+      }
+      if (/^<\/pre>/i.test(token) || /^<\/code>/i.test(token)) {
+        inPre = false;
+        minified += token;
+        continue;
+      }
+
+      if (token.startsWith('<!--')) {
+        if (token.startsWith('<!--[if')) {
+          minified += token;
+        }
+        continue;
+      }
+
+      if (inPre) {
+        minified += token;
+      } else if (token.startsWith('<')) {
+        minified += token.replace(/\s+/g, ' ');
+      } else {
+        const collapsed = token.replace(/\s+/g, ' ');
+        if (collapsed.trim()) {
+          minified += collapsed;
+        }
+      }
+    }
+
+    minified = minified.replace(/>\s+</g, '><').trim();
+    const outputSize = new Blob([minified]).size;
+
+    return {
+      output: minified,
+      isValid: true,
+      issues: [],
+      inputSize,
+      outputSize,
+      executionTimeMs: Math.round(performance.now() - start),
+    };
+  } catch (err: any) {
+    return {
+      output: input,
+      isValid: false,
+      issues: [{ message: err?.message || 'Failed to minify HTML', severity: 'error' }],
+      inputSize,
+      outputSize: inputSize,
+      executionTimeMs: Math.round(performance.now() - start),
+    };
+  }
+}
+
+/**
+ * Minifies CSS by removing comments, newlines, and collapsing whitespace around delimiters.
+ */
+export function minifyCss(input: string): ToolExecutionResult {
+  const start = performance.now();
+  const inputSize = new Blob([input]).size;
+
+  if (!input || !input.trim()) {
+    return { output: '', isValid: false, issues: [{ message: 'Input is empty.', severity: 'warning' }] };
+  }
+
+  try {
+    let minified = input
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\s+/g, ' ')
+      .replace(/\s*([{}:;,>+~])\s*/g, '$1')
+      .replace(/;}/g, '}')
+      .trim();
+
+    const outputSize = new Blob([minified]).size;
+
+    return {
+      output: minified,
+      isValid: true,
+      issues: [],
+      inputSize,
+      outputSize,
+      executionTimeMs: Math.round(performance.now() - start),
+    };
+  } catch (err: any) {
+    return {
+      output: input,
+      isValid: false,
+      issues: [{ message: err?.message || 'Failed to minify CSS', severity: 'error' }],
+      inputSize,
+      outputSize: inputSize,
+      executionTimeMs: Math.round(performance.now() - start),
+    };
+  }
+}
+
+/**
+ * Minifies SQL queries by stripping comments and normalizing whitespace outside string literals.
+ */
+export function minifySql(input: string): ToolExecutionResult {
+  const start = performance.now();
+  const inputSize = new Blob([input]).size;
+
+  if (!input || !input.trim()) {
+    return { output: '', isValid: false, issues: [{ message: 'Input is empty.', severity: 'warning' }] };
+  }
+
+  try {
+    let inSingleQuote = false;
+    let minified = '';
+    let i = 0;
+    const len = input.length;
+
+    while (i < len) {
+      if (!inSingleQuote && input[i] === '-' && input[i + 1] === '-') {
+        while (i < len && input[i] !== '\n' && input[i] !== '\r') {
+          i++;
+        }
+        continue;
+      }
+
+      if (!inSingleQuote && input[i] === '/' && input[i + 1] === '*') {
+        i += 2;
+        while (i + 1 < len && !(input[i] === '*' && input[i + 1] === '/')) {
+          i++;
+        }
+        i += 2;
+        continue;
+      }
+
+      const ch = input[i];
+      if (ch === "'") {
+        inSingleQuote = !inSingleQuote;
+        minified += ch;
+        i++;
+        continue;
+      }
+
+      if (!inSingleQuote && /\s/.test(ch)) {
+        if (!minified.endsWith(' ') && minified.length > 0) {
+          minified += ' ';
+        }
+        i++;
+        continue;
+      }
+
+      minified += ch;
+      i++;
+    }
+
+    minified = minified
+      .replace(/\s*([,()])\s*/g, '$1 ')
+      .replace(/\(\s+/g, '(')
+      .replace(/\s+\)/g, ')')
+      .trim();
+
+    const outputSize = new Blob([minified]).size;
+
+    return {
+      output: minified,
+      isValid: true,
+      issues: [],
+      inputSize,
+      outputSize,
+      executionTimeMs: Math.round(performance.now() - start),
+    };
+  } catch (err: any) {
+    return {
+      output: input,
+      isValid: false,
+      issues: [{ message: err?.message || 'Failed to minify SQL', severity: 'error' }],
+      inputSize,
+      outputSize: inputSize,
+      executionTimeMs: Math.round(performance.now() - start),
+    };
+  }
+}
+
+/**
+ * Validates syntax and structure across JavaScript, HTML, CSS, and SQL.
+ */
+export function validateCode(
+  input: string,
+  language: BeautifierLanguage
+): ToolExecutionResult {
+  const start = performance.now();
+  const inputSize = new Blob([input]).size;
+
+  if (!input || !input.trim()) {
+    return {
+      output: '',
+      isValid: false,
+      issues: [{ message: 'Input is empty.', severity: 'warning' }],
+      inputSize,
+      outputSize: 0,
+      executionTimeMs: 0,
+    };
+  }
+
+  const issues: ValidationIssue[] = [];
+
+  try {
+    if (language === 'sql') {
+      try {
+        formatSqlString(input, { language: 'sql' });
+      } catch (err: any) {
+        issues.push({
+          message: err?.message || 'SQL syntax error',
+          severity: 'error',
+        });
+      }
+    } else if (language === 'javascript') {
+      try {
+        if (/^\s*(import|export)\b/m.test(input)) {
+          const tokens = tokenizeJavascript(input);
+          let braceCount = 0;
+          let parenCount = 0;
+          for (const t of tokens) {
+            if (t.value === '{') braceCount++;
+            if (t.value === '}') braceCount--;
+            if (t.value === '(') parenCount++;
+            if (t.value === ')') parenCount--;
+          }
+          if (braceCount !== 0) {
+            issues.push({ message: `Mismatched braces: ${braceCount > 0 ? 'unclosed {' : 'unexpected }'}`, severity: 'error' });
+          }
+          if (parenCount !== 0) {
+            issues.push({ message: `Mismatched parentheses: ${parenCount > 0 ? 'unclosed (' : 'unexpected )'}`, severity: 'error' });
+          }
+        } else {
+          new Function(input);
+        }
+      } catch (err: any) {
+        issues.push({
+          message: err?.message || 'JavaScript syntax error',
+          severity: 'error',
+        });
+      }
+    } else if (language === 'html') {
+      const tokens = tokenizeHtml(input);
+      const voidTags = new Set([
+        'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
+        'link', 'meta', 'param', 'source', 'track', 'wbr', '!doctype'
+      ]);
+      const tagStack: string[] = [];
+
+      for (const token of tokens) {
+        if (token.startsWith('</')) {
+          const match = token.match(/^<\/([a-zA-Z0-9:-]+)/);
+          if (match) {
+            const closingTag = match[1].toLowerCase();
+            if (tagStack.length === 0) {
+              issues.push({ message: `Unexpected closing tag </${closingTag}> with no matching open tag.`, severity: 'error' });
+            } else {
+              const lastOpen = tagStack.pop();
+              if (lastOpen !== closingTag) {
+                issues.push({ message: `Mismatched tag: expected </${lastOpen}> but found </${closingTag}>.`, severity: 'error' });
+              }
+            }
+          }
+        } else if (token.startsWith('<') && !token.startsWith('<!--') && !token.startsWith('<!')) {
+          const match = token.match(/^<([a-zA-Z0-9:-]+)/);
+          if (match) {
+            const tagName = match[1].toLowerCase();
+            const isSelfClosing = token.endsWith('/>') || voidTags.has(tagName);
+            if (!isSelfClosing) {
+              tagStack.push(tagName);
+            }
+          }
+        }
+      }
+
+      if (tagStack.length > 0) {
+        issues.push({ message: `Unclosed tag(s): <${tagStack.join('>, <')}> at end of document.`, severity: 'error' });
+      }
+    } else if (language === 'css') {
+      let braceCount = 0;
+      let inComment = false;
+      for (let i = 0; i < input.length; i++) {
+        if (!inComment && input[i] === '/' && input[i + 1] === '*') {
+          inComment = true;
+          i++;
+        } else if (inComment && input[i] === '*' && input[i + 1] === '/') {
+          inComment = false;
+          i++;
+        } else if (!inComment) {
+          if (input[i] === '{') braceCount++;
+          if (input[i] === '}') braceCount--;
+        }
+      }
+      if (inComment) {
+        issues.push({ message: 'Unclosed comment /* found.', severity: 'error' });
+      }
+      if (braceCount !== 0) {
+        issues.push({ message: `Mismatched CSS braces: ${braceCount > 0 ? 'unclosed {' : 'unexpected }'}.`, severity: 'error' });
+      }
+    }
+  } catch (err: any) {
+    issues.push({ message: err?.message || 'Validation error', severity: 'error' });
+  }
+
+  const isValid = issues.length === 0;
+  return {
+    output: input,
+    isValid,
+    issues,
+    inputSize,
+    outputSize: inputSize,
+    executionTimeMs: Math.round(performance.now() - start),
+  };
 }

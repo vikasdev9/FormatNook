@@ -8,6 +8,12 @@ import {
   encodeHtmlToBase64,
   encodeCssToBase64,
   decodeBasicAuth,
+  encodeUrlText,
+  decodeUrlText,
+  encodeTextToHex,
+  decodeHexToText,
+  encodeHtmlEntities,
+  decodeHtmlEntities,
 } from '../services/text-encoding.service';
 
 describe('text-encoding.service', () => {
@@ -129,6 +135,63 @@ describe('text-encoding.service', () => {
       const decoded = decodeToText(invalid);
       expect(decoded.isValid).toBe(false);
       expect(decoded.issues.length).toBeGreaterThan(0);
+    });
+
+    it('encodes and decodes URL strings with special characters and Unicode', () => {
+      const original = 'https://formatnook.com/search?q=developer tools & emojis 🚀';
+      const encoded = encodeUrlText(original, true);
+      expect(encoded.isValid).toBe(true);
+      expect(encoded.output).toContain('%20');
+      expect(encoded.output).toContain('%F0%9F%9A%80');
+
+      const decoded = decodeUrlText(encoded.output);
+      expect(decoded.isValid).toBe(true);
+      expect(decoded.output).toBe(original);
+    });
+
+    it('safely handles malformed percent-encoding in URL decoder', () => {
+      const malformed = 'https://formatnook.com/%E0%A4%A';
+      const res = decodeUrlText(malformed);
+      expect(res.isValid).toBe(false);
+      expect(res.issues.length).toBeGreaterThan(0);
+      expect(res.issues[0].message).toContain('Malformed URL');
+    });
+
+    it('encodes text to hex and decodes hex back to text', () => {
+      const text = 'Hello, FormatNook!';
+      const hexRes = encodeTextToHex(text, { uppercase: true, grouping: 'space' });
+      expect(hexRes.isValid).toBe(true);
+      expect(hexRes.output).toMatch(/^[0-9A-F]{2}( [0-9A-F]{2})*$/);
+
+      const textRes = decodeHexToText(hexRes.output);
+      expect(textRes.isValid).toBe(true);
+      expect(textRes.output).toBe(text);
+    });
+
+    it('rejects invalid hex characters during hex decoding', () => {
+      const invalidHex = '48 65 6C 6C 6F ZZ';
+      const res = decodeHexToText(invalidHex);
+      expect(res.isValid).toBe(false);
+      expect(res.issues[0].message).toContain('Invalid hexadecimal');
+    });
+
+    it('encodes and decodes HTML entities with named and numeric modes', () => {
+      const rawHtml = '<div class="alert" data-id=\'1\'>Tom & Jerry & 10 > 5</div>';
+      const namedEncoded = encodeHtmlEntities(rawHtml, 'named');
+      expect(namedEncoded.isValid).toBe(true);
+      expect(namedEncoded.output).toContain('&lt;div');
+      expect(namedEncoded.output).toContain('&amp;');
+      expect(namedEncoded.output).toContain('&gt;');
+      expect(namedEncoded.output).toContain('&quot;');
+      expect(namedEncoded.output).toContain('&#39;');
+
+      const decoded = decodeHtmlEntities(namedEncoded.output);
+      expect(decoded.isValid).toBe(true);
+      expect(decoded.output).toBe(rawHtml);
+
+      // Decimal and hex decoding
+      expect(decodeHtmlEntities('&#60;h1&#62;Title&#x3C;/h1&#x3E;').output).toBe('<h1>Title</h1>');
+      expect(decodeHtmlEntities('&copy; 2026 &euro; 100').output).toBe('© 2026 € 100');
     });
   });
 });

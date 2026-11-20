@@ -22,6 +22,13 @@ export type EncoderDecoderToolId =
 
 export type ToolDirection = 'encode' | 'decode';
 
+export type EncodingFormat =
+  | 'base64-text'
+  | 'base64-file'
+  | 'url'
+  | 'hex'
+  | 'html-entities';
+
 export interface FileMetadataInfo {
   name: string;
   size: number;

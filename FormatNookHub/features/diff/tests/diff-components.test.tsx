@@ -215,5 +215,63 @@ describe('TextDiffWorkspace Component', () => {
 
     expect(screen.getByTestId('checkbox-ignore-row-order')).toBeInTheDocument();
   });
+
+  it('supports difference navigation stepper controls and counter', () => {
+    render(<TextDiffWorkspace />);
+
+    const counter = screen.getByTestId('diff-counter');
+    expect(counter).toBeInTheDocument();
+    expect(counter.textContent).toMatch(/\d+ of \d+/);
+
+    const prevBtn = screen.getByTestId('btn-prev-diff');
+    const nextBtn = screen.getByTestId('btn-next-diff');
+    expect(prevBtn).toBeInTheDocument();
+    expect(nextBtn).toBeInTheDocument();
+
+    fireEvent.click(nextBtn);
+    expect(counter.textContent).toMatch(/\d+ of \d+/);
+
+    fireEvent.click(prevBtn);
+    expect(counter.textContent).toMatch(/\d+ of \d+/);
+  });
+
+  it('supports sync scroll toggle and quick comparison options in toolbar', () => {
+    render(<TextDiffWorkspace />);
+
+    const syncBtn = screen.getByTestId('btn-toggle-sync-scroll');
+    expect(syncBtn).toBeInTheDocument();
+    fireEvent.click(syncBtn);
+
+    const wsToggle = screen.getByTestId('toggle-ignore-whitespace');
+    const caseToggle = screen.getByTestId('toggle-ignore-case');
+    const blankToggle = screen.getByTestId('toggle-ignore-blank-lines');
+
+    expect(wsToggle).toBeInTheDocument();
+    expect(caseToggle).toBeInTheDocument();
+    expect(blankToggle).toBeInTheDocument();
+
+    fireEvent.click(wsToggle);
+    expect(wsToggle).toHaveClass('active');
+  });
+
+  it('renders resizable splitter with accessible attributes', () => {
+    render(<TextDiffWorkspace />);
+
+    const resizer = screen.getByRole('separator', { name: /resize original and modified/i });
+    expect(resizer).toBeInTheDocument();
+    expect(resizer).toHaveAttribute('aria-orientation', 'vertical');
+    expect(resizer).toHaveAttribute('aria-valuenow', '50');
+
+    // Arrow keys resize
+    fireEvent.keyDown(resizer, { key: 'ArrowLeft' });
+    expect(resizer).toHaveAttribute('aria-valuenow', '45');
+
+    fireEvent.keyDown(resizer, { key: 'ArrowRight' });
+    expect(resizer).toHaveAttribute('aria-valuenow', '50');
+
+    // Double-click resets
+    fireEvent.doubleClick(resizer);
+    expect(resizer).toHaveAttribute('aria-valuenow', '50');
+  });
 });
 

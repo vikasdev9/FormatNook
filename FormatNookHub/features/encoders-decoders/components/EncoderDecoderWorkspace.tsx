@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   encodeText,
   decodeToText,
@@ -9,6 +9,12 @@ import {
   encodeUrlToBase64,
   encodeHtmlToBase64,
   encodeCssToBase64,
+  encodeUrlText,
+  decodeUrlText,
+  encodeTextToHex,
+  decodeHexToText,
+  encodeHtmlEntities,
+  decodeHtmlEntities,
 } from '../services/text-encoding.service';
 import {
   encodeFileToBase64,
@@ -42,6 +48,7 @@ import {
   EncoderDecoderToolId,
   HexFormatOptions,
   FileMetadataInfo,
+  EncodingFormat,
 } from '../types/encoder-decoder.types';
 import {
   ImageConversionOptions,
@@ -50,6 +57,7 @@ import {
   DetailedFileMetadata,
 } from '../types/file-metadata.types';
 import { base64ToBytes } from '../services/base64.service';
+import { formatFileSize } from '../utils/byte-conversion.utils';
 import { Base64InspectorView } from './Base64InspectorView';
 import { Base64ValidatorView } from './Base64ValidatorView';
 import { Base64RepairView } from './Base64RepairView';
@@ -71,6 +79,10 @@ import {
   ArrowRightLeft,
   WrapText,
   Keyboard,
+  Trash2,
+  CheckCircle2,
+  AlertCircle,
+  Clock,
 } from 'lucide-react';
 import {
   KeyboardShortcutsModal,
@@ -102,6 +114,41 @@ interface EncoderDecoderWorkspaceProps {
   mimeType?: string;
 }
 
+const ENCODING_FORMATS: { id: EncodingFormat; label: string; shortLabel: string }[] = [
+  { id: 'base64-text', label: 'Base64 Text', shortLabel: 'Base64 Text' },
+  { id: 'base64-file', label: 'Base64 File', shortLabel: 'Base64 File' },
+  { id: 'url', label: 'URL', shortLabel: 'URL' },
+  { id: 'hex', label: 'Hex', shortLabel: 'Hex' },
+  { id: 'html-entities', label: 'HTML Entities', shortLabel: 'HTML Entities' },
+];
+
+function getInitialFormat(toolId: EncoderDecoderToolId): EncodingFormat {
+  if (
+    toolId === 'file-to-base64' ||
+    toolId === 'base64-to-file' ||
+    toolId === 'image-to-base64' ||
+    toolId === 'base64-to-image' ||
+    toolId === 'audio-to-base64' ||
+    toolId === 'base64-to-audio' ||
+    toolId === 'video-to-base64' ||
+    toolId === 'base64-to-video' ||
+    toolId === 'pdf-to-base64' ||
+    toolId === 'base64-to-pdf'
+  ) {
+    return 'base64-file';
+  }
+  if (toolId === 'hex-to-base64' || toolId === 'base64-to-hex') {
+    return 'hex';
+  }
+  if (toolId === 'url-to-base64') {
+    return 'url';
+  }
+  if (toolId === 'html-to-base64') {
+    return 'html-entities';
+  }
+  return 'base64-text';
+}
+
 export function EncoderDecoderWorkspace({
   toolId,
   direction,
@@ -118,18 +165,28 @@ export function EncoderDecoderWorkspace({
   const [workbenchTab, setWorkbenchTab] = useState<WorkbenchViewTab>(initialWorkbenchTab);
   const [hexBytes, setHexBytes] = useState<Uint8Array | null>(null);
 
+  // Active encoding format & direction
+  const [activeFormat, setActiveFormat] = useState<EncodingFormat>(() => getInitialFormat(toolId));
+  const [currentDirection, setCurrentDirection] = useState<'encode' | 'decode'>(direction);
+
   // Input states
   const [textInput, setTextInput] = useState<string>(defaultSample);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileMetadata, setFileMetadata] = useState<FileMetadataInfo | null>(null);
 
-  // General options
+  // General & Format-Specific Options
   const [urlSafe, setUrlSafe] = useState(false);
+  const [urlComponentMode, setUrlComponentMode] = useState(true);
+  const [htmlEntityMode, setHtmlEntityMode] = useState<'named' | 'numeric'>('named');
   const [dataUriMode, setDataUriMode] = useState<'raw' | 'data-uri'>('data-uri');
   const [hexOptions, setHexOptions] = useState<HexFormatOptions>({ uppercase: true, grouping: 'space' });
   const [customFilename, setCustomFilename] = useState(outputFileName);
   const [wrapText, setWrapText] = useState(true);
   const [mobileTab, setMobileTab] = useState<'both' | 'input' | 'output'>('both');
+  const [panelsRatio, setPanelsRatio] = useState<number>(50);
+
+  const gridRef = useRef<HTMLDivElement>(null);
+  const isDraggingRef = useRef<boolean>(false);
 
   // Dynamic Image Output Format Switcher states (for Base64 to Image)
   const [imageFormatOptions, setImageFormatOptions] = useState<ImageConversionOptions>({
@@ -175,33 +232,12 @@ export function EncoderDecoderWorkspace({
         }
       },
       'base64-clear': () => handleReset(),
+      'base64-swap': () => handleSwap(),
       'base64-repair': () => setWorkbenchTab('repair'),
       'base64-inspect': () => setWorkbenchTab('inspect'),
       'base64-shortcuts': () => setIsShortcutsOpen(true),
     },
   });
-
-  // Keep hex dump bytes synced with current content
-  useEffect(() => {
-    if (decodedBlob) {
-      decodedBlob.arrayBuffer().then((buf) => setHexBytes(new Uint8Array(buf)));
-    } else if (outputString.trim()) {
-      const res = base64ToBytes(outputString);
-      if (res.isValid && res.bytes.length > 0) {
-        setHexBytes(res.bytes);
-      } else if (textInput.trim()) {
-        const textRes = base64ToBytes(textInput);
-        setHexBytes(textRes.isValid ? textRes.bytes : new TextEncoder().encode(textInput));
-      } else {
-        setHexBytes(null);
-      }
-    } else if (textInput.trim()) {
-      const res = base64ToBytes(textInput);
-      setHexBytes(res.isValid ? res.bytes : new TextEncoder().encode(textInput));
-    } else {
-      setHexBytes(null);
-    }
-  }, [decodedBlob, textInput, outputString]);
 
   // Track active Object URLs for revocation
   const activeObjectUrls = useRef<string[]>([]);
@@ -242,17 +278,78 @@ export function EncoderDecoderWorkspace({
     setDetectedMime(mimeType);
     setValidation({ isValid: null, issues: [] });
     setWorkbenchTab(initialWorkbenchTab);
+    setActiveFormat(getInitialFormat(toolId));
+    setCurrentDirection(direction);
   }, [toolId, direction, defaultSample, outputFileName, mimeType, initialWorkbenchTab]);
 
-  // Execute conversion whenever input, settings, or active tool change
+  // Keep hex dump bytes synced with current content
   useEffect(() => {
-    executeJob();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [toolId, direction, textInput, selectedFile, urlSafe, hexOptions, dataUriMode, imageFormatOptions]);
+    if (decodedBlob) {
+      decodedBlob.arrayBuffer().then((buf) => setHexBytes(new Uint8Array(buf)));
+    } else if (outputString.trim()) {
+      const res = base64ToBytes(outputString);
+      if (res.isValid && res.bytes.length > 0) {
+        setHexBytes(res.bytes);
+      } else if (textInput.trim()) {
+        const textRes = base64ToBytes(textInput);
+        setHexBytes(textRes.isValid ? textRes.bytes : new TextEncoder().encode(textInput));
+      } else {
+        setHexBytes(null);
+      }
+    } else if (textInput.trim()) {
+      const res = base64ToBytes(textInput);
+      setHexBytes(res.isValid ? res.bytes : new TextEncoder().encode(textInput));
+    } else {
+      setHexBytes(null);
+    }
+  }, [decodedBlob, textInput, outputString]);
 
-  const executeJob = async () => {
-    // 1. Text to Base64
-    if (toolId === 'text-to-base64') {
+  // Execute conversion whenever input, settings, active format, or direction change
+  const executeJob = useCallback(async () => {
+    // 1. Format: URL Encode / Decode
+    if (activeFormat === 'url') {
+      if (currentDirection === 'encode') {
+        const res = encodeUrlText(textInput, urlComponentMode);
+        setOutputString(res.output);
+        setValidation({ isValid: res.isValid, issues: res.issues });
+      } else {
+        const res = decodeUrlText(textInput);
+        setOutputString(res.output);
+        setValidation({ isValid: res.isValid, issues: res.issues });
+      }
+      return;
+    }
+
+    // 2. Format: HTML Entities Encode / Decode
+    if (activeFormat === 'html-entities') {
+      if (currentDirection === 'encode') {
+        const res = encodeHtmlEntities(textInput, htmlEntityMode);
+        setOutputString(res.output);
+        setValidation({ isValid: res.isValid, issues: res.issues });
+      } else {
+        const res = decodeHtmlEntities(textInput);
+        setOutputString(res.output);
+        setValidation({ isValid: res.isValid, issues: res.issues });
+      }
+      return;
+    }
+
+    // 3. Format: Hex (Text <-> Hex, unless bound to Base64-Hex tools)
+    if (activeFormat === 'hex' && toolId !== 'hex-to-base64' && toolId !== 'base64-to-hex') {
+      if (currentDirection === 'encode') {
+        const res = encodeTextToHex(textInput, hexOptions);
+        setOutputString(res.output);
+        setValidation({ isValid: res.isValid, issues: res.issues });
+      } else {
+        const res = decodeHexToText(textInput);
+        setOutputString(res.output);
+        setValidation({ isValid: res.isValid, issues: res.issues });
+      }
+      return;
+    }
+
+    // 4. Base64 Tools (Standard or Tool-Specific)
+    if (toolId === 'text-to-base64' || (activeFormat === 'base64-text' && currentDirection === 'encode')) {
       const res = encodeText(textInput, urlSafe);
       setOutputString(res.output);
       setIsLargeOutput(Boolean(res.isTruncatedForDisplay));
@@ -260,8 +357,7 @@ export function EncoderDecoderWorkspace({
       return;
     }
 
-    // 2. Base64 to Text
-    if (toolId === 'base64-to-text') {
+    if (toolId === 'base64-to-text' || (activeFormat === 'base64-text' && currentDirection === 'decode')) {
       if (!textInput.trim()) {
         setOutputString('');
         setValidation({ isValid: null, issues: [] });
@@ -274,7 +370,7 @@ export function EncoderDecoderWorkspace({
       return;
     }
 
-    // 3. Hex to Base64
+    // 5. Hex to Base64
     if (toolId === 'hex-to-base64') {
       if (!textInput.trim()) {
         setOutputString('');
@@ -287,7 +383,7 @@ export function EncoderDecoderWorkspace({
       return;
     }
 
-    // 4. Base64 to Hex
+    // 6. Base64 to Hex
     if (toolId === 'base64-to-hex') {
       if (!textInput.trim()) {
         setOutputString('');
@@ -301,7 +397,7 @@ export function EncoderDecoderWorkspace({
       return;
     }
 
-    // 5. URL to Base64
+    // 7. URL to Base64
     if (toolId === 'url-to-base64') {
       const res = encodeUrlToBase64(textInput, urlSafe);
       setOutputString(res.output);
@@ -309,7 +405,7 @@ export function EncoderDecoderWorkspace({
       return;
     }
 
-    // 6. HTML to Base64
+    // 8. HTML to Base64
     if (toolId === 'html-to-base64') {
       const res = encodeHtmlToBase64(textInput);
       setOutputString(dataUriMode === 'data-uri' ? res.dataUri : res.output);
@@ -319,7 +415,7 @@ export function EncoderDecoderWorkspace({
       return;
     }
 
-    // 7. CSS to Base64
+    // 9. CSS to Base64
     if (toolId === 'css-to-base64') {
       const res = encodeCssToBase64(textInput);
       setOutputString(dataUriMode === 'data-uri' ? res.dataUri : res.output);
@@ -329,13 +425,14 @@ export function EncoderDecoderWorkspace({
       return;
     }
 
-    // 8. File-based Encoders (File / Image / Audio / Video / PDF to Base64)
+    // 10. File-based Encoders (File / Image / Audio / Video / PDF to Base64)
     if (
       toolId === 'file-to-base64' ||
       toolId === 'image-to-base64' ||
       toolId === 'audio-to-base64' ||
       toolId === 'video-to-base64' ||
-      toolId === 'pdf-to-base64'
+      toolId === 'pdf-to-base64' ||
+      (activeFormat === 'base64-file' && currentDirection === 'encode')
     ) {
       if (!selectedFile) {
         setOutputString('');
@@ -358,13 +455,14 @@ export function EncoderDecoderWorkspace({
       return;
     }
 
-    // 9. Base64 to Media/File Decoders
+    // 11. Base64 to Media/File Decoders
     if (
       toolId === 'base64-to-file' ||
       toolId === 'base64-to-image' ||
       toolId === 'base64-to-audio' ||
       toolId === 'base64-to-video' ||
-      toolId === 'base64-to-pdf'
+      toolId === 'base64-to-pdf' ||
+      (activeFormat === 'base64-file' && currentDirection === 'decode')
     ) {
       if (!textInput.trim()) {
         setDecodedBlob(null);
@@ -454,7 +552,25 @@ export function EncoderDecoderWorkspace({
 
       setValidation({ isValid: true, issues: [] });
     }
-  };
+  }, [
+    activeFormat,
+    currentDirection,
+    toolId,
+    textInput,
+    selectedFile,
+    urlSafe,
+    urlComponentMode,
+    htmlEntityMode,
+    hexOptions,
+    dataUriMode,
+    imageFormatOptions,
+    mimeType,
+    customFilename,
+  ]);
+
+  useEffect(() => {
+    executeJob();
+  }, [executeJob]);
 
   // Live Image Format Selector handler (without re-pasting Base64)
   const handleImageFormatChange = async (newOptions: ImageConversionOptions) => {
@@ -523,6 +639,43 @@ export function EncoderDecoderWorkspace({
     setValidation({ isValid: null, issues: [] });
   };
 
+  const handleSwap = () => {
+    if (activeFormat === 'base64-file') {
+      if (currentDirection === 'encode' && outputString) {
+        setTextInput(outputString);
+        setSelectedFile(null);
+        setCurrentDirection('decode');
+      } else if (currentDirection === 'decode' && decodedBlob) {
+        const file = new File([decodedBlob], customFilename || 'decoded.bin', { type: detectedMime });
+        setSelectedFile(file);
+        setTextInput('');
+        setCurrentDirection('encode');
+      }
+      return;
+    }
+
+    const nextInput = outputString;
+    const nextOutput = textInput;
+    setTextInput(nextInput);
+    setOutputString(nextOutput);
+    setCurrentDirection((prev) => (prev === 'encode' ? 'decode' : 'encode'));
+  };
+
+  const handleFormatSelect = (fmt: EncodingFormat) => {
+    setActiveFormat(fmt);
+    if (!textInput.trim()) {
+      if (fmt === 'url') {
+        setTextInput('https://formatnook.com/search?q=developer tools & privacy=100%');
+      } else if (fmt === 'hex') {
+        setTextInput('Hello, FormatNook Developer!');
+      } else if (fmt === 'html-entities') {
+        setTextInput('<div class="badge">Tom & Jerry & 10 > 5</div>');
+      } else if (fmt === 'base64-text') {
+        setTextInput('Hello, FormatNook Developer! 🚀');
+      }
+    }
+  };
+
   const handleDownloadOutput = () => {
     if (toolId === 'base64-to-image' && convertedImage) {
       downloadFile(convertedImage.blob, convertedImage.suggestedFilename, convertedImage.mimeType);
@@ -533,7 +686,70 @@ export function EncoderDecoderWorkspace({
     }
   };
 
+  // Resizable Panels Handlers (Pointer events, touch & keyboard accessible)
+  const handlePointerDownResizer = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    isDraggingRef.current = true;
+    const pointerId = e.pointerId;
+    const targetElement = e.currentTarget;
+
+    if (targetElement.setPointerCapture) {
+      try {
+        targetElement.setPointerCapture(pointerId);
+      } catch {
+        // ignore
+      }
+    }
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      if (!isDraggingRef.current || !gridRef.current) return;
+      const rect = gridRef.current.getBoundingClientRect();
+      if (rect.width <= 0) return;
+      const newRatio = ((moveEvent.clientX - rect.left) / rect.width) * 100;
+      if (newRatio >= 20 && newRatio <= 80) {
+        setPanelsRatio(Math.round(newRatio));
+      }
+    };
+
+    const handlePointerUpOrCancel = () => {
+      if (!isDraggingRef.current) return;
+      isDraggingRef.current = false;
+      if (targetElement.releasePointerCapture) {
+        try {
+          targetElement.releasePointerCapture(pointerId);
+        } catch {
+          // ignore
+        }
+      }
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUpOrCancel);
+      window.removeEventListener('pointercancel', handlePointerUpOrCancel);
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUpOrCancel);
+    window.addEventListener('pointercancel', handlePointerUpOrCancel);
+  };
+
+  const handleResizerKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      setPanelsRatio((prev) => Math.max(20, prev - 5));
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      setPanelsRatio((prev) => Math.min(80, prev + 5));
+    } else if (e.key === 'Home' || e.key === 'End') {
+      e.preventDefault();
+      setPanelsRatio(50);
+    }
+  };
+
+  const handleResizerDoubleClick = () => {
+    setPanelsRatio(50);
+  };
+
   const isFileInput =
+    (activeFormat === 'base64-file' && currentDirection === 'encode') ||
     toolId === 'file-to-base64' ||
     toolId === 'image-to-base64' ||
     toolId === 'audio-to-base64' ||
@@ -541,11 +757,39 @@ export function EncoderDecoderWorkspace({
     toolId === 'pdf-to-base64';
 
   const isMediaDecoder =
+    (activeFormat === 'base64-file' && currentDirection === 'decode') ||
     toolId === 'base64-to-image' ||
     toolId === 'base64-to-audio' ||
     toolId === 'base64-to-video' ||
     toolId === 'base64-to-pdf' ||
     toolId === 'base64-to-file';
+
+  // Statistics calculation for standardized headers
+  const inputLines = textInput.split('\n').length;
+  const inputChars = textInput.length;
+  const inputBytes = new Blob([textInput]).size;
+  const inputStats = isFileInput
+    ? selectedFile
+      ? `${selectedFile.name} • ${formatFileSize(selectedFile.size)}`
+      : 'No file selected'
+    : `${inputLines} ${inputLines === 1 ? 'line' : 'lines'} • ${inputChars} chars (${formatFileSize(inputBytes)})`;
+
+  const outputLines = outputString ? outputString.split('\n').length : 0;
+  const outputChars = outputString ? outputString.length : 0;
+  const outputBytes = decodedBlob
+    ? decodedBlob.size
+    : convertedImage
+    ? convertedImage.sizeBytes
+    : outputString
+    ? new Blob([outputString]).size
+    : 0;
+  const outputStats = isMediaDecoder
+    ? mediaPreviewUrl
+      ? `${convertedImage?.suggestedFilename || customFilename} • ${formatFileSize(outputBytes)}`
+      : 'No preview available'
+    : outputString
+    ? `${outputLines} ${outputLines === 1 ? 'line' : 'lines'} • ${outputChars} chars (${formatFileSize(outputBytes)})`
+    : 'Empty output';
 
   // Construct Detailed Metadata for Active Tool
   let detailedMetadata: DetailedFileMetadata | null = null;
@@ -638,8 +882,20 @@ export function EncoderDecoderWorkspace({
     }
   }
 
+  const inputPanelTitle = isFileInput
+    ? 'Select or Drop File'
+    : currentDirection === 'encode'
+    ? 'Input Text / Payload'
+    : 'Encoded Input';
+
+  const outputPanelTitle = isMediaDecoder
+    ? 'Decoded Media Preview'
+    : currentDirection === 'encode'
+    ? 'Encoded Output'
+    : 'Decoded Result';
+
   return (
-    <div className="tool-workspace-container">
+    <div className="tool-workspace-container" data-testid="encoder-workspace">
       {/* Primary Base64 Developer Suite Tabs */}
       <div className="workspace-tab-nav" role="tablist">
         <button
@@ -745,7 +1001,7 @@ export function EncoderDecoderWorkspace({
       {workbenchTab === 'inspect' && (
         <Base64InspectorView
           initialPayload={textInput || outputString}
-          onNavigateToMode={(mode, payload) => {
+          onNavigateToMode={(_mode, payload) => {
             if (payload) setTextInput(payload);
             setWorkbenchTab('editor');
           }}
@@ -802,113 +1058,255 @@ export function EncoderDecoderWorkspace({
             currentSlug={toolId}
             pairedSlug={pairedSlug}
             pairedName={pairedName}
-            activeDirection={direction}
+            activeDirection={currentDirection}
           />
 
-          {/* Main Action Bar */}
-          <div className="tool-toolbar">
-            <div className="toolbar-group-left">
-              {/* URL-Safe checkbox for text & hex */}
-              {(toolId === 'text-to-base64' || toolId === 'hex-to-base64' || toolId === 'url-to-base64') && (
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8125rem', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={urlSafe}
-                    onChange={(e) => setUrlSafe(e.target.checked)}
-                  />
-                  <span>URL-Safe (- and _)</span>
-                </label>
-              )}
+          {/* Standardized Two-Tier Toolbar */}
+          <div className="tool-toolbar encoder-toolbar" role="toolbar" aria-label="Encoder and Decoder Controls">
+            {/* Tier 1: Primary Actions, Format Selector, and Actions Hub */}
+            <div className="encoder-toolbar-primary">
+              <div className="toolbar-group-left">
+                {/* Primary Action Button */}
+                <button
+                  type="button"
+                  className={`btn btn-sm ${currentDirection === 'encode' ? 'btn-primary' : 'btn-secondary'}`}
+                  onClick={() => {
+                    setCurrentDirection('encode');
+                    executeJob();
+                  }}
+                  title={currentDirection === 'encode' ? 'Encode to Base64' : 'Switch to Encode'}
+                  data-testid="btn-encode"
+                >
+                  <Binary size={14} />
+                  <span>{currentDirection === 'encode' && isFileInput ? 'Encode to Base64' : 'Encode to Base64'}</span>
+                </button>
 
-              {/* Data URI vs Raw Base64 for file encoders */}
-              {(isFileInput || toolId === 'html-to-base64' || toolId === 'css-to-base64') && (
-                <div style={{ display: 'flex', gap: '0.25rem' }}>
-                  <button
-                    className={`btn btn-sm ${dataUriMode === 'data-uri' ? 'btn-primary' : 'btn-ghost'}`}
-                    onClick={() => setDataUriMode('data-uri')}
-                  >
-                    Data URI
-                  </button>
-                  <button
-                    className={`btn btn-sm ${dataUriMode === 'raw' ? 'btn-primary' : 'btn-ghost'}`}
-                    onClick={() => setDataUriMode('raw')}
-                  >
-                    Raw Base64
-                  </button>
+                <button
+                  type="button"
+                  className={`btn btn-sm ${currentDirection === 'decode' ? 'btn-primary' : 'btn-secondary'}`}
+                  onClick={() => {
+                    setCurrentDirection('decode');
+                    executeJob();
+                  }}
+                  title={currentDirection === 'decode' ? 'Decode Payload' : 'Switch to Decode'}
+                  data-testid="btn-decode"
+                >
+                  <ArrowRightLeft size={14} />
+                  <span>{currentDirection === 'decode' ? 'Decode Payload' : 'Decode Payload'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  className="btn btn-sm btn-secondary"
+                  onClick={handleSwap}
+                  title="Swap Input and Output (Ctrl+Shift+S)"
+                  aria-label="Swap Input and Output"
+                  data-testid="btn-swap"
+                >
+                  <ArrowRightLeft size={14} />
+                  <span>Swap</span>
+                </button>
+
+                <ResetButton onReset={handleReset} />
+
+                {/* Format Selector Pills */}
+                <div className="encoder-format-pill-group" role="group" aria-label="Encoding Format Selection">
+                  {ENCODING_FORMATS.map((fmt) => (
+                    <button
+                      key={fmt.id}
+                      type="button"
+                      className={`encoder-format-pill ${activeFormat === fmt.id ? 'active' : ''}`}
+                      onClick={() => handleFormatSelect(fmt.id)}
+                      data-testid={`btn-format-${fmt.id}`}
+                    >
+                      {fmt.shortLabel}
+                    </button>
+                  ))}
                 </div>
-              )}
+              </div>
 
-              {/* Hex formatting options */}
-              {toolId === 'base64-to-hex' && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.8125rem' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                    <input
-                      type="checkbox"
-                      checked={hexOptions.uppercase}
-                      onChange={(e) => setHexOptions({ ...hexOptions, uppercase: e.target.checked })}
-                    />
-                    <span>Uppercase</span>
-                  </label>
-
-                  <select
-                    className="select-control"
-                    value={hexOptions.grouping}
-                    onChange={(e) => setHexOptions({ ...hexOptions, grouping: e.target.value as any })}
-                  >
-                    <option value="none">No Space</option>
-                    <option value="space">Space Separated</option>
-                    <option value="colon">Colon (:) Separated</option>
-                    <option value="hyphen">Hyphen (-) Separated</option>
-                  </select>
-                </div>
-              )}
-
-              {/* Custom Filename for Base64 to File */}
-              {toolId === 'base64-to-file' && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8125rem' }}>
-                  <label htmlFor="custom-fname">Save As:</label>
-                  <input
-                    id="custom-fname"
-                    type="text"
-                    className="select-control"
-                    value={customFilename}
-                    onChange={(e) => setCustomFilename(e.target.value)}
-                    style={{ width: '160px' }}
-                  />
-                </div>
-              )}
+              <div className="toolbar-group-right">
+                <button
+                  type="button"
+                  className="btn btn-sm btn-ghost"
+                  onClick={() => setIsShortcutsOpen(true)}
+                  title="Keyboard Shortcuts Reference (?)"
+                  aria-label="Keyboard Shortcuts"
+                  data-testid="btn-shortcuts"
+                >
+                  <Keyboard size={14} />
+                  <span>Shortcuts</span>
+                </button>
+              </div>
             </div>
 
-            <div className="toolbar-group-right" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <button
-                type="button"
-                className="btn btn-sm btn-primary"
-                onClick={() => executeJob()}
-                title={direction === 'encode' ? 'Encode to Base64' : 'Decode Base64'}
-              >
-                {direction === 'encode' ? <Binary size={14} /> : <ArrowRightLeft size={14} />}
-                <span>{direction === 'encode' ? 'Encode to Base64' : 'Decode Payload'}</span>
-              </button>
-              <ResetButton onReset={handleReset} />
-              <button
-                type="button"
-                className="btn btn-sm btn-ghost"
-                onClick={() => setIsShortcutsOpen(true)}
-                title="Keyboard Shortcuts Reference"
-                aria-label="Keyboard Shortcuts"
-              >
-                <Keyboard size={14} />
-                <span>Shortcuts</span>
-              </button>
+            {/* Tier 2: Format-Specific Relevant Options */}
+            <div className="encoder-toolbar-secondary">
+              <div className="encoder-secondary-left">
+                {/* 1. Base64 Text Options */}
+                {activeFormat === 'base64-text' && (
+                  <label
+                    className="options-control-group"
+                    style={{ cursor: 'pointer', userSelect: 'none' }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={urlSafe}
+                      onChange={(e) => setUrlSafe(e.target.checked)}
+                      data-testid="checkbox-url-safe"
+                    />
+                    <span>URL-Safe (- and _)</span>
+                  </label>
+                )}
+
+                {/* 2. Base64 File Options */}
+                {activeFormat === 'base64-file' && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+                    <div style={{ display: 'flex', gap: '0.25rem' }}>
+                      <button
+                        type="button"
+                        className={`btn btn-xs ${dataUriMode === 'data-uri' ? 'btn-primary' : 'btn-ghost'}`}
+                        onClick={() => setDataUriMode('data-uri')}
+                        data-testid="btn-data-uri-mode"
+                      >
+                        Data URI
+                      </button>
+                      <button
+                        type="button"
+                        className={`btn btn-xs ${dataUriMode === 'raw' ? 'btn-primary' : 'btn-ghost'}`}
+                        onClick={() => setDataUriMode('raw')}
+                        data-testid="btn-raw-mode"
+                      >
+                        Raw Base64
+                      </button>
+                    </div>
+
+                    {toolId === 'base64-to-file' && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8125rem' }}>
+                        <label htmlFor="custom-fname">Save As:</label>
+                        <input
+                          id="custom-fname"
+                          type="text"
+                          className="select-control"
+                          value={customFilename}
+                          onChange={(e) => setCustomFilename(e.target.value)}
+                          style={{ width: '160px' }}
+                          data-testid="input-custom-filename"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 3. URL Options */}
+                {activeFormat === 'url' && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Mode:</span>
+                    <button
+                      type="button"
+                      className={`encoder-quick-toggle ${urlComponentMode ? 'active' : ''}`}
+                      onClick={() => setUrlComponentMode(true)}
+                      data-testid="toggle-url-component"
+                    >
+                      Component (encodeURIComponent)
+                    </button>
+                    <button
+                      type="button"
+                      className={`encoder-quick-toggle ${!urlComponentMode ? 'active' : ''}`}
+                      onClick={() => setUrlComponentMode(false)}
+                      data-testid="toggle-url-full"
+                    >
+                      Full URL (encodeURI)
+                    </button>
+                  </div>
+                )}
+
+                {/* 4. Hex Options */}
+                {activeFormat === 'hex' && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.8125rem' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={hexOptions.uppercase}
+                        onChange={(e) => setHexOptions({ ...hexOptions, uppercase: e.target.checked })}
+                        data-testid="checkbox-hex-uppercase"
+                      />
+                      <span>Uppercase</span>
+                    </label>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <label htmlFor="hex-delimiter-select" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                        Delimiter:
+                      </label>
+                      <select
+                        id="hex-delimiter-select"
+                        className="select-control"
+                        value={hexOptions.grouping}
+                        onChange={(e) => setHexOptions({ ...hexOptions, grouping: e.target.value as any })}
+                        data-testid="select-hex-delimiter"
+                      >
+                        <option value="none">No Space</option>
+                        <option value="space">Space Separated</option>
+                        <option value="colon">Colon (:) Separated</option>
+                        <option value="hyphen">Hyphen (-) Separated</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+
+                {/* 5. HTML Entities Options */}
+                {activeFormat === 'html-entities' && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Encoding:</span>
+                    <button
+                      type="button"
+                      className={`encoder-quick-toggle ${htmlEntityMode === 'named' ? 'active' : ''}`}
+                      onClick={() => setHtmlEntityMode('named')}
+                      data-testid="toggle-html-named"
+                    >
+                      Named (&amp;, &lt;, &gt;)
+                    </button>
+                    <button
+                      type="button"
+                      className={`encoder-quick-toggle ${htmlEntityMode === 'numeric' ? 'active' : ''}`}
+                      onClick={() => setHtmlEntityMode('numeric')}
+                      data-testid="toggle-html-numeric"
+                    >
+                      Numeric (&#60;, &#62;)
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="encoder-secondary-right">
+                {validation.isValid === true && (
+                  <span className="encoder-status-badge status-valid" data-testid="encoder-status-pill">
+                    <CheckCircle2 size={13} />
+                    <span>Valid</span>
+                  </span>
+                )}
+                {validation.isValid === false && (
+                  <span className="encoder-status-badge status-invalid" data-testid="encoder-status-pill">
+                    <AlertCircle size={13} />
+                    <span>Error</span>
+                  </span>
+                )}
+                {validation.isValid === null && (
+                  <span className="encoder-status-badge status-ready" data-testid="encoder-status-pill">
+                    <Clock size={13} />
+                    <span>Ready</span>
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
           <ValidationMessage
             isValid={validation.isValid}
             issues={validation.issues}
-            successMessage={`Successfully ${direction === 'encode' ? 'Encoded to Base64' : 'Decoded'}`}
+            successMessage={`Successfully ${currentDirection === 'encode' ? 'Encoded' : 'Decoded'}`}
             action={
-              direction === 'decode' && validation.isValid === false && textInput.trim()
+              currentDirection === 'decode' && validation.isValid === false && textInput.trim()
                 ? {
                     label: 'Repair & Normalize Payload',
                     icon: <Wrench size={14} />,
@@ -957,14 +1355,27 @@ export function EncoderDecoderWorkspace({
             </button>
           </div>
 
-          {/* Workspace Panels */}
-          <div className="editor-workspace-grid">
+          {/* Resizable Split Grid */}
+          <div
+            ref={gridRef}
+            className="editor-workspace-grid json-resizable-grid base64-resizable-grid"
+            style={
+              {
+                '--panels-left': `${panelsRatio}fr`,
+                '--panels-right': `${100 - panelsRatio}fr`,
+              } as React.CSSProperties
+            }
+          >
             {/* Left Column: Input (File or Text) */}
-            <div className={`editor-panel ${mobileTab === 'output' ? 'mobile-panel-hidden' : ''}`}>
+            <div
+              className={`editor-panel ${mobileTab === 'output' ? 'mobile-panel-hidden' : ''}`}
+              data-testid="encoder-input-panel"
+            >
               <div className="panel-header">
-                <span className="panel-title-group">
-                  {isFileInput ? 'Select or Drop File' : 'Input'}
-                </span>
+                <div className="panel-title-group">
+                  <span className="panel-title-text">{inputPanelTitle}</span>
+                  <span className="panel-stats">{inputStats}</span>
+                </div>
                 <div className="panel-actions">
                   {!isFileInput && (
                     <>
@@ -980,6 +1391,17 @@ export function EncoderDecoderWorkspace({
                         <span>Wrap</span>
                       </button>
                       <CopyButton text={textInput} label="Copy" />
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => setTextInput('')}
+                        disabled={!textInput}
+                        title="Clear Input"
+                        aria-label="Clear Input"
+                        data-testid="btn-clear-input"
+                      >
+                        <Trash2 size={13} />
+                      </button>
                     </>
                   )}
                 </div>
@@ -1014,12 +1436,34 @@ export function EncoderDecoderWorkspace({
               </div>
             </div>
 
+            {/* Accessible Workspace Split Resizer */}
+            <div
+              className="workspace-split-resizer"
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize encoder input and output panels"
+              aria-valuenow={panelsRatio}
+              aria-valuemin={20}
+              aria-valuemax={80}
+              tabIndex={0}
+              onPointerDown={handlePointerDownResizer}
+              onKeyDown={handleResizerKeyDown}
+              onDoubleClick={handleResizerDoubleClick}
+              title="Drag to resize panels, double-click to reset (50/50)"
+            >
+              <div className="workspace-split-resizer-line" />
+            </div>
+
             {/* Right Column: Output (Media Preview or Text) */}
-            <div className={`editor-panel ${mobileTab === 'input' ? 'mobile-panel-hidden' : ''}`}>
+            <div
+              className={`editor-panel ${mobileTab === 'input' ? 'mobile-panel-hidden' : ''}`}
+              data-testid="encoder-output-panel"
+            >
               <div className="panel-header">
-                <span className="panel-title-group">
-                  {isMediaDecoder ? 'Decoded Media Preview' : 'Output'}
-                </span>
+                <div className="panel-title-group">
+                  <span className="panel-title-text">{outputPanelTitle}</span>
+                  <span className="panel-stats">{outputStats}</span>
+                </div>
                 <div className="panel-actions">
                   <ShareButton
                     getPayload={() =>

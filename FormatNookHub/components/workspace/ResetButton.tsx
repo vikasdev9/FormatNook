@@ -8,9 +8,16 @@ interface ResetButtonProps {
   label?: string;
   className?: string;
   disabled?: boolean;
+  'data-testid'?: string;
 }
 
-export function ResetButton({ onReset, label = 'Clear', className = 'btn btn-ghost btn-sm', disabled = false }: ResetButtonProps) {
+export function ResetButton({
+  onReset,
+  label = 'Clear',
+  className = 'btn btn-ghost btn-sm',
+  disabled = false,
+  'data-testid': dataTestId = 'btn-reset',
+}: ResetButtonProps) {
   return (
     <button
       className={className}
@@ -18,6 +25,7 @@ export function ResetButton({ onReset, label = 'Clear', className = 'btn btn-gho
       disabled={disabled}
       title="Clear editor contents"
       aria-label="Clear contents"
+      data-testid={dataTestId}
     >
       <Trash2 size={14} />
       {label && <span>{label}</span>}

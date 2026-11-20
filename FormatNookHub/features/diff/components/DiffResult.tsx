@@ -11,9 +11,15 @@ interface DiffResultProps {
   diffResult: DiffResultData | DiffEngineResult | null;
   viewMode: DiffViewMode;
   isComparing?: boolean;
+  activeDiffLineId?: string | number | null;
 }
 
-export function DiffResult({ diffResult, viewMode, isComparing = false }: DiffResultProps) {
+export function DiffResult({
+  diffResult,
+  viewMode,
+  isComparing = false,
+  activeDiffLineId = null,
+}: DiffResultProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   if (isComparing) {
@@ -96,21 +102,21 @@ export function DiffResult({ diffResult, viewMode, isComparing = false }: DiffRe
 
       {/* Visual Line-by-Line Diff Viewer */}
       <div className="diff-viewer-card">
-        <div className="diff-viewer-header">
+        <div className="diff-viewer-header panel-header">
           {viewMode === 'side-by-side' ? (
             <div className="diff-header-split">
               <div className="diff-header-pane-title">
-                <span>Original Text</span>
+                <span className="panel-title-text">Original Text</span>
                 {formatBadge}
               </div>
               <div className="diff-header-pane-title">
-                <span>Modified Text</span>
+                <span className="panel-title-text">Modified Text</span>
                 {formatBadge}
               </div>
             </div>
           ) : (
             <div className="diff-header-unified">
-              <span className="diff-header-pane-title">Unified Comparison Result</span>
+              <span className="diff-header-pane-title panel-title-text">Unified Comparison Result</span>
               {formatBadge}
             </div>
           )}
@@ -124,7 +130,12 @@ export function DiffResult({ diffResult, viewMode, isComparing = false }: DiffRe
           data-testid={viewMode === 'side-by-side' ? 'view-split-container' : 'view-inline-container'}
         >
           {diffResult.lines.map((item) => (
-            <DiffLine key={item.id} item={item} viewMode={viewMode} />
+            <DiffLine
+              key={item.id}
+              item={item}
+              viewMode={viewMode}
+              isActive={item.id === activeDiffLineId}
+            />
           ))}
         </div>
       </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { DiffFormat, DiffOptions, DiffResultData } from '../types/diff.types';
 import { DiffEngineResult } from '../services/engines/types';
 import {
@@ -147,33 +147,173 @@ export function TextDiffWorkspace() {
   const [diffResult, setDiffResult] = useState<DiffEngineResult | DiffResultData | null>(null);
   const [isComparing, setIsComparing] = useState<boolean>(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState<boolean>(false);
-
-  // Modal stack management for Diff Shortcuts Help
-  useModalShortcuts('diff-shortcuts-modal', isShortcutsOpen, () => setIsShortcutsOpen(false));
-
-  // Centralized Diff Keyboard Shortcuts
-  useKeyboardShortcuts({
-    scope: 'workspace',
-    category: 'diff',
-    bindings: {
-      'diff-compare': () => handleCompareClick(),
-      'diff-swap': () => handleSwap(),
-      'diff-copy': () => {
-        const unified = diffResult ? (diffResult as any).unifiedText || (diffResult as any).diffText || '' : '';
-        if (unified && typeof navigator !== 'undefined') {
-          navigator.clipboard?.writeText(unified);
-        }
-      },
-      'diff-clear': () => handleClear(),
-      'diff-shortcuts': () => setIsShortcutsOpen(true),
-    },
-  });
+  const [panelsRatio, setPanelsRatio] = useState<number>(50);
+  const [syncScroll, setSyncScroll] = useState<boolean>(true);
+  const [currentDiffIndex, setCurrentDiffIndex] = useState<number>(0);
+  const [activeDiffLineId, setActiveDiffLineId] = useState<string | number | null>(null);
 
   const prevFormatRef = useRef<DiffFormat>(options.format);
   const origEditorRef = useRef<HTMLTextAreaElement>(null);
   const modEditorRef = useRef<HTMLTextAreaElement>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const isDraggingRef = useRef<boolean>(false);
   const isSyncingScroll = useRef<boolean>(false);
   const requestIdRef = useRef<number>(0);
+
+  // Modal stack management for Diff Shortcuts Help
+  useModalShortcuts('diff-shortcuts-modal', isShortcutsOpen, () => setIsShortcutsOpen(false));
+
+  // Compute Difference Chunks for Next/Prev Stepper
+  const diffChunks = useMemo(() => {
+    if (!diffResult || !diffResult.lines) return [];
+    const chunks: { id: string | number; lineId: string | number; origLine?: number; modLine?: number }[] = [];
+    let inChunk = false;
+    for (const line of diffResult.lines) {
+      if (line.type !== 'equal') {
+        if (!inChunk) {
+          inChunk = true;
+          chunks.push({
+            id: line.id,
+            lineId: line.id,
+            origLine: line.originalLineNumber,
+            modLine: line.modifiedLineNumber,
+          });
+        }
+      } else {
+        inChunk = false;
+      }
+    }
+    return chunks;
+  }, [diffResult]);
+
+  // Reset or adjust diff index when chunks change
+  useEffect(() => {
+    if (diffChunks.length === 0) {
+      setCurrentDiffIndex(0);
+      setActiveDiffLineId(null);
+    } else if (currentDiffIndex >= diffChunks.length) {
+      setCurrentDiffIndex(0);
+      setActiveDiffLineId(diffChunks[0].lineId);
+    }
+  }, [diffChunks, currentDiffIndex]);
+
+  const scrollToDiff = useCallback(
+    (chunk: { id: string | number; lineId: string | number; origLine?: number; modLine?: number }) => {
+      setActiveDiffLineId(chunk.lineId);
+
+      // Scroll Diff viewer if rendered
+      if (typeof document !== 'undefined') {
+        const el = document.getElementById(`diff-line-${chunk.lineId}`);
+        if (el && typeof el.scrollIntoView === 'function') {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
+
+      // Scroll input editors to matching lines
+      const lineHeight = 24;
+      if (chunk.origLine && origEditorRef.current) {
+        origEditorRef.current.scrollTop = Math.max(0, (chunk.origLine - 3) * lineHeight);
+      }
+      if (chunk.modLine && modEditorRef.current) {
+        modEditorRef.current.scrollTop = Math.max(0, (chunk.modLine - 3) * lineHeight);
+      }
+    },
+    []
+  );
+
+  const handleNextDiff = useCallback(() => {
+    if (diffChunks.length === 0) return;
+    const nextIdx = (currentDiffIndex + 1) % diffChunks.length;
+    setCurrentDiffIndex(nextIdx);
+    scrollToDiff(diffChunks[nextIdx]);
+  }, [diffChunks, currentDiffIndex, scrollToDiff]);
+
+  const handlePrevDiff = useCallback(() => {
+    if (diffChunks.length === 0) return;
+    const prevIdx = currentDiffIndex <= 0 ? diffChunks.length - 1 : currentDiffIndex - 1;
+    setCurrentDiffIndex(prevIdx);
+    scrollToDiff(diffChunks[prevIdx]);
+  }, [diffChunks, currentDiffIndex, scrollToDiff]);
+
+  // Window key listener for Alt+Down / Alt+Up and F7 / Shift+F7
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.altKey && e.key === 'ArrowDown') || (e.key === 'F7' && !e.shiftKey)) {
+        e.preventDefault();
+        handleNextDiff();
+      } else if ((e.altKey && e.key === 'ArrowUp') || (e.key === 'F7' && e.shiftKey)) {
+        e.preventDefault();
+        handlePrevDiff();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleNextDiff, handlePrevDiff]);
+
+  // Resizable Panels Handlers (Pointer events, touch & keyboard accessible)
+  const handlePointerDownResizer = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    isDraggingRef.current = true;
+    const pointerId = e.pointerId;
+    const targetElement = e.currentTarget;
+
+    if (targetElement.setPointerCapture) {
+      try {
+        targetElement.setPointerCapture(pointerId);
+      } catch {
+        // ignore
+      }
+    }
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      if (!isDraggingRef.current || !gridRef.current) return;
+      const rect = gridRef.current.getBoundingClientRect();
+      if (rect.width <= 0) return;
+      const newRatio = ((moveEvent.clientX - rect.left) / rect.width) * 100;
+      if (newRatio >= 20 && newRatio <= 80) {
+        setPanelsRatio(Math.round(newRatio));
+      }
+    };
+
+    const handlePointerUpOrCancel = () => {
+      if (!isDraggingRef.current) return;
+      isDraggingRef.current = false;
+      if (targetElement.releasePointerCapture) {
+        try {
+          targetElement.releasePointerCapture(pointerId);
+        } catch {
+          // ignore
+        }
+      }
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUpOrCancel);
+      window.removeEventListener('pointercancel', handlePointerUpOrCancel);
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUpOrCancel);
+    window.addEventListener('pointercancel', handlePointerUpOrCancel);
+  };
+
+  const handleResizerKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      setPanelsRatio((prev) => Math.max(20, prev - 5));
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      setPanelsRatio((prev) => Math.min(80, prev + 5));
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      setPanelsRatio(50);
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      setPanelsRatio(50);
+    }
+  };
+
+  const handleResizerDoubleClick = () => {
+    setPanelsRatio(50);
+  };
 
   // Acquire background Diff Worker lifecycle
   useEffect(() => {
@@ -201,29 +341,35 @@ export function TextDiffWorkspace() {
   }, [options.format, originalText, modifiedText]);
 
   // Synchronized scroll handlers between input editors
-  const handleOrigScrollSync = useCallback((scrollTop: number, scrollLeft: number) => {
-    if (isSyncingScroll.current) return;
-    if (modEditorRef.current) {
-      isSyncingScroll.current = true;
-      modEditorRef.current.scrollTop = scrollTop;
-      modEditorRef.current.scrollLeft = scrollLeft;
-      requestAnimationFrame(() => {
-        isSyncingScroll.current = false;
-      });
-    }
-  }, []);
+  const handleOrigScrollSync = useCallback(
+    (scrollTop: number, scrollLeft: number) => {
+      if (!syncScroll || isSyncingScroll.current) return;
+      if (modEditorRef.current) {
+        isSyncingScroll.current = true;
+        modEditorRef.current.scrollTop = scrollTop;
+        modEditorRef.current.scrollLeft = scrollLeft;
+        requestAnimationFrame(() => {
+          isSyncingScroll.current = false;
+        });
+      }
+    },
+    [syncScroll]
+  );
 
-  const handleModScrollSync = useCallback((scrollTop: number, scrollLeft: number) => {
-    if (isSyncingScroll.current) return;
-    if (origEditorRef.current) {
-      isSyncingScroll.current = true;
-      origEditorRef.current.scrollTop = scrollTop;
-      origEditorRef.current.scrollLeft = scrollLeft;
-      requestAnimationFrame(() => {
-        isSyncingScroll.current = false;
-      });
-    }
-  }, []);
+  const handleModScrollSync = useCallback(
+    (scrollTop: number, scrollLeft: number) => {
+      if (!syncScroll || isSyncingScroll.current) return;
+      if (origEditorRef.current) {
+        isSyncingScroll.current = true;
+        origEditorRef.current.scrollTop = scrollTop;
+        origEditorRef.current.scrollLeft = scrollLeft;
+        requestAnimationFrame(() => {
+          isSyncingScroll.current = false;
+        });
+      }
+    },
+    [syncScroll]
+  );
 
   // Compute diff execution via background Web Worker for large payloads (with synchronous fallback)
   const executeDiff = useCallback(
@@ -231,15 +377,14 @@ export function TextDiffWorkspace() {
       const reqId = ++requestIdRef.current;
       const totalLen = (orig || '').length + (mod || '').length;
 
-      // For standard payloads or when Worker is unavailable (e.g. Node/SSR/jsdom),
-      // compute synchronously for instant response and test compatibility
+      // Synchronous fallback for small payloads or SSR/test environments
       if (typeof window === 'undefined' || typeof Worker === 'undefined' || totalLen <= 10000) {
         setIsComparing(false);
         setDiffResult(computeDiff(orig, mod, currentOptions));
         return;
       }
 
-      // For large or adversarial inputs (>10k chars), compute in background Web Worker
+      // Background Web Worker for large payloads
       setIsComparing(true);
       diffWorkerClient
         .computeDiff(orig, mod, currentOptions)
@@ -312,13 +457,31 @@ export function TextDiffWorkspace() {
     setModifiedText(prepMod.text);
   };
 
+  // Centralized Diff Keyboard Shortcuts
+  useKeyboardShortcuts({
+    scope: 'workspace',
+    category: 'diff',
+    bindings: {
+      'diff-compare': () => handleCompareClick(),
+      'diff-swap': () => handleSwap(),
+      'diff-copy': () => {
+        const unified = diffResult ? (diffResult as any).unifiedText || (diffResult as any).diffText || '' : '';
+        if (unified && typeof navigator !== 'undefined') {
+          navigator.clipboard?.writeText(unified);
+        }
+      },
+      'diff-clear': () => handleClear(),
+      'diff-shortcuts': () => setIsShortcutsOpen(true),
+    },
+  });
+
   const engineRes = diffResult as DiffEngineResult | null;
   const originalError = engineRes?.errors?.original || diffResult?.formatWarnings?.original;
   const modifiedError = engineRes?.errors?.modified || diffResult?.formatWarnings?.modified;
 
   return (
     <div className="diff-workspace-container" data-testid="diff-workspace">
-      {/* Diff Toolbar with 10-Mode Selector */}
+      {/* Diff Toolbar with 10-Mode Selector and Hierarchy */}
       <DiffToolbar
         onCompare={handleCompareClick}
         onSwap={handleSwap}
@@ -332,6 +495,12 @@ export function TextDiffWorkspace() {
         diffResult={diffResult}
         isComparing={isComparing}
         onOpenShortcuts={() => setIsShortcutsOpen(true)}
+        totalDiffs={diffChunks.length}
+        currentDiffIndex={currentDiffIndex}
+        onNextDiff={handleNextDiff}
+        onPrevDiff={handlePrevDiff}
+        syncScroll={syncScroll}
+        onToggleSyncScroll={() => setSyncScroll((prev) => !prev)}
       />
 
       {/* Collapsible Comparison Settings */}
@@ -370,8 +539,17 @@ export function TextDiffWorkspace() {
         </button>
       </div>
 
-      {/* Dual Text Editors for Original and Modified Input */}
-      <div className="editor-workspace-grid diff-editor-grid">
+      {/* Resizable Dual Text Editors for Original and Modified Input */}
+      <div
+        ref={gridRef}
+        className="editor-workspace-grid json-resizable-grid diff-resizable-grid"
+        style={
+          {
+            '--panels-left': `${panelsRatio}fr`,
+            '--panels-right': `${100 - panelsRatio}fr`,
+          } as React.CSSProperties
+        }
+      >
         <TextEditor
           id="original-editor"
           title={`Original ${currentModeConfig.label}`}
@@ -384,7 +562,26 @@ export function TextDiffWorkspace() {
           error={originalError}
           acceptExtensions={currentModeConfig.extensions}
           className={mobileTab === 'modified' ? 'mobile-panel-hidden' : ''}
+          onClear={() => setOriginalText('')}
         />
+
+        {/* Resizable Splitter */}
+        <div
+          className="workspace-split-resizer"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize original and modified editor panels"
+          aria-valuenow={panelsRatio}
+          aria-valuemin={20}
+          aria-valuemax={80}
+          tabIndex={0}
+          onPointerDown={handlePointerDownResizer}
+          onKeyDown={handleResizerKeyDown}
+          onDoubleClick={handleResizerDoubleClick}
+          title="Drag to resize panels, double-click to reset (50/50)"
+        >
+          <div className="workspace-split-resizer-line" />
+        </div>
 
         <TextEditor
           id="modified-editor"
@@ -398,6 +595,7 @@ export function TextDiffWorkspace() {
           error={modifiedError}
           acceptExtensions={currentModeConfig.extensions}
           className={mobileTab === 'original' ? 'mobile-panel-hidden' : ''}
+          onClear={() => setModifiedText('')}
         />
       </div>
 
@@ -414,6 +612,7 @@ export function TextDiffWorkspace() {
         diffResult={diffResult}
         viewMode={options.viewMode}
         isComparing={isComparing}
+        activeDiffLineId={activeDiffLineId}
       />
 
       {/* Keyboard Shortcuts Reference Dialog */}

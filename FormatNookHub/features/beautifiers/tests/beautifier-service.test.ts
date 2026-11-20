@@ -5,6 +5,11 @@ import {
   tokenizeHtml,
   formatCss,
   formatJavascript,
+  minifyJavascript,
+  minifyHtml,
+  minifyCss,
+  minifySql,
+  validateCode,
 } from '../services/beautifier-service';
 
 describe('beautifier-service', () => {
@@ -164,6 +169,111 @@ describe('beautifier-service', () => {
       expect(result.output).toContain('  try {');
       expect(result.output).toContain('    const res = await fetch(url);');
       expect(result.output).toContain('    return res.json();');
+    });
+
+    it('converts quotes when requested in JsFormatOptions', () => {
+      const code = 'const msg = "hello world";';
+      const singleQuoteResult = formatJavascript(code, { indent: '2', quotes: 'single' });
+      expect(singleQuoteResult.output).toBe("const msg = 'hello world';");
+
+      const doubleQuoteResult = formatJavascript("const msg = 'hello world';", { indent: '2', quotes: 'double' });
+      expect(doubleQuoteResult.output).toBe('const msg = "hello world";');
+    });
+  });
+
+  describe('Minification Suite (JS, HTML, CSS, SQL)', () => {
+    it('minifies JavaScript without corrupting tokens, operators, and literals', () => {
+      const js = `// Test function
+      function calculateTotal(price, taxRate) {
+        /* compute total */
+        const total = price + (price * taxRate);
+        return total;
+      }`;
+      const result = minifyJavascript(js);
+      expect(result.isValid).toBe(true);
+      expect(result.output).not.toContain('//');
+      expect(result.output).not.toContain('/*');
+      expect(result.output).toContain('function calculateTotal(price,taxRate){const total=price+(price*taxRate);return total;}');
+    });
+
+    it('minifies HTML preserving tags and stripping whitespace and comments', () => {
+      const html = `
+        <!-- Main header -->
+        <div class="container">
+          <h1> Hello World </h1>
+          <p> This is a paragraph. </p>
+        </div>
+      `;
+      const result = minifyHtml(html);
+      expect(result.isValid).toBe(true);
+      expect(result.output).not.toContain('<!-- Main header -->');
+      expect(result.output).toBe('<div class="container"><h1>Hello World</h1><p>This is a paragraph.</p></div>');
+    });
+
+    it('minifies CSS removing comments and collapsing whitespace around rules', () => {
+      const css = `
+        /* Card component */
+        .card {
+          background-color: #ffffff;
+          border-radius: 8px;
+          margin: 10px 0;
+        }
+      `;
+      const result = minifyCss(css);
+      expect(result.isValid).toBe(true);
+      expect(result.output).not.toContain('/* Card component */');
+      expect(result.output).toBe('.card{background-color:#ffffff;border-radius:8px;margin:10px 0}');
+    });
+
+    it('minifies SQL queries stripping comments and excess whitespace outside literals', () => {
+      const sql = `
+        -- Fetch active users
+        SELECT u.id, u.name, 'Sample String with spaces' AS sample_text
+        FROM users u
+        WHERE u.active = 1;
+      `;
+      const result = minifySql(sql);
+      expect(result.isValid).toBe(true);
+      expect(result.output).not.toContain('-- Fetch active users');
+      expect(result.output).toContain("SELECT u.id, u.name, 'Sample String with spaces' AS sample_text FROM users u WHERE u.active = 1;");
+    });
+  });
+
+  describe('Validation Suite (JS, HTML, CSS, SQL)', () => {
+    it('validates correct and incorrect JavaScript syntax', () => {
+      const valid = validateCode('function add(a, b) { return a + b; }', 'javascript');
+      expect(valid.isValid).toBe(true);
+      expect(valid.issues.length).toBe(0);
+
+      const invalid = validateCode('function add(a, b) { return a + ; }', 'javascript');
+      expect(invalid.isValid).toBe(false);
+      expect(invalid.issues.length).toBeGreaterThan(0);
+    });
+
+    it('validates correct and unclosed HTML tags', () => {
+      const valid = validateCode('<div><p>Hello <span>world</span></p></div>', 'html');
+      expect(valid.isValid).toBe(true);
+
+      const invalid = validateCode('<div><p>Hello <span>world</p></div>', 'html');
+      expect(invalid.isValid).toBe(false);
+      expect(invalid.issues.length).toBeGreaterThan(0);
+    });
+
+    it('validates correct and unbalanced CSS braces', () => {
+      const valid = validateCode('.btn { color: red; font-size: 14px; }', 'css');
+      expect(valid.isValid).toBe(true);
+
+      const invalid = validateCode('.btn { color: red; font-size: 14px;', 'css');
+      expect(invalid.isValid).toBe(false);
+      expect(invalid.issues.length).toBeGreaterThan(0);
+    });
+
+    it('validates correct and incorrect SQL syntax', () => {
+      const valid = validateCode('SELECT id, name FROM users WHERE id = 1;', 'sql');
+      expect(valid.isValid).toBe(true);
+
+      const empty = validateCode('', 'sql');
+      expect(empty.isValid).toBe(false);
     });
   });
 });

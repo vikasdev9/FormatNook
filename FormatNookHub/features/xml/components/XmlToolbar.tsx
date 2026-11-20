@@ -88,10 +88,48 @@ export function XmlToolbar({
 }: XmlToolbarProps) {
   return (
     <div className="json-workspace-toolbar-wrapper">
-      {/* Primary Toolbar */}
+      {/* Primary Toolbar (Tier 1) */}
       <div className="tool-toolbar json-main-toolbar">
         <div className="toolbar-group-left">
-          {/* View Mode Switcher */}
+          {/* Primary Operations: Beautify, Minify, Validate */}
+          <div className="toolbar-btn-group" role="group" aria-label="Primary Actions">
+            <button
+              className={`btn ${activeAction === 'format' ? 'btn-primary' : 'btn-secondary'} btn-prominent-action`}
+              onClick={onFormat}
+              aria-label="Format and beautify XML"
+              title="Beautify and indent XML document (Ctrl+Enter)"
+              data-testid="xml-beautify-btn"
+            >
+              <Sparkles size={15} />
+              <span>Beautify</span>
+            </button>
+
+            <button
+              className={`btn ${activeAction === 'minify' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={onMinify}
+              aria-label="Minify XML"
+              title="Minify XML by stripping extra whitespace"
+              data-testid="xml-minify-btn"
+            >
+              <Minimize2 size={15} />
+              <span>Minify</span>
+            </button>
+
+            <button
+              className={`btn ${activeAction === 'validate' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={onValidate}
+              aria-label="Validate XML syntax"
+              title="Validate XML tags and well-formedness"
+              data-testid="xml-validate-btn"
+            >
+              <CheckCircle2 size={15} />
+              <span>Validate</span>
+            </button>
+          </div>
+
+          <div className="toolbar-vertical-divider" />
+
+          {/* View Mode Navigation Pills */}
           <div className="json-view-mode-pills" role="tablist" aria-label="XML View Mode">
             <button
               role="tab"
@@ -127,104 +165,78 @@ export function XmlToolbar({
               <span>Structured</span>
             </button>
           </div>
+        </div>
 
-          <div className="toolbar-vertical-divider" />
+        {/* Right: Quick Action Modal & Dropzone/Reset */}
+        <div className="toolbar-group-right">
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={onOpenConverter}
+            title="Convert XML to JSON, YAML, CSV, TSV, or String Literal"
+            data-testid="xml-convert-btn"
+          >
+            <ArrowRightLeft size={14} />
+            <span>Convert</span>
+          </button>
 
-          {/* Primary Actions Group */}
-          <div className="toolbar-btn-group" role="group" aria-label="Primary Actions">
+          <FileDropzone
+            onFileLoaded={onFileLoaded}
+            acceptExtensions={['.xml', '.xsd', '.wsdl', '.soap', '.svg', '.txt']}
+          />
+          <ResetButton onReset={onReset} />
+        </div>
+      </div>
+
+      {/* Secondary Options Strip (Tier 2) */}
+      <div className="json-secondary-toolbar">
+        <div className="secondary-group-left">
+          {/* Specialized Tools Subgroup */}
+          <div className="toolbar-sub-group" role="group" aria-label="Specialized XML Tools">
             <button
-              className={`btn ${activeAction === 'format' ? 'btn-primary' : 'btn-secondary'} btn-prominent-action`}
-              onClick={onFormat}
-              aria-label="Format and beautify XML"
-              title="Beautify and indent XML document (Ctrl+Enter)"
-              data-testid="xml-beautify-btn"
-            >
-              <Sparkles size={15} />
-              <span>Beautify</span>
-            </button>
-
-            <button
-              className={`btn ${activeAction === 'minify' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={onMinify}
-              aria-label="Minify XML"
-              title="Minify XML by stripping extra whitespace"
-              data-testid="xml-minify-btn"
-            >
-              <Minimize2 size={15} />
-              <span>Minify</span>
-            </button>
-
-            <button
-              className={`btn ${activeAction === 'validate' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={onValidate}
-              aria-label="Validate XML syntax"
-              title="Validate XML tags and well-formedness"
-              data-testid="xml-validate-btn"
-            >
-              <CheckCircle2 size={15} />
-              <span>Validate</span>
-            </button>
-
-            <button
-              className="btn btn-secondary"
-              onClick={onOneLine}
-              title="Collapse XML into a single line"
-              data-testid="xml-oneline-btn"
-            >
-              <AlignJustify size={15} />
-              <span>One-Line</span>
-            </button>
-          </div>
-
-          <div className="toolbar-vertical-divider" />
-
-          {/* Secondary Actions Group */}
-          <div className="toolbar-btn-group" role="group" aria-label="Advanced Tools">
-            <button
-              className="btn btn-secondary"
+              className="btn-subtle-toggle"
               onClick={onOpenXPath}
               title="Evaluate XPath expressions against the XML document"
               data-testid="xml-xpath-btn"
             >
-              <Compass size={15} />
+              <Compass size={13} style={{ display: 'inline', marginRight: '4px' }} />
               <span>XPath</span>
             </button>
 
             <button
-              className="btn btn-secondary"
-              onClick={onOpenConverter}
-              title="Convert XML to JSON, YAML, CSV, TSV, or String Literal"
-              data-testid="xml-convert-btn"
-            >
-              <ArrowRightLeft size={15} />
-              <span>Convert</span>
-            </button>
-
-            <button
-              className="btn btn-secondary"
+              className="btn-subtle-toggle"
               onClick={onOpenSpecialized}
               title="Inspect SOAP envelopes, WSDL web services, and XSD schemas"
               data-testid="xml-specialized-btn"
             >
-              <Cpu size={15} />
+              <Cpu size={13} style={{ display: 'inline', marginRight: '4px' }} />
               <span>SOAP / WSDL / XSD</span>
             </button>
 
             {onOpenDiff && (
               <button
-                className="btn btn-secondary"
+                className="btn-subtle-toggle"
                 onClick={onOpenDiff}
                 title="Compare input vs formatted XML"
                 data-testid="xml-diff-btn"
               >
-                <GitCompare size={15} />
+                <GitCompare size={13} style={{ display: 'inline', marginRight: '4px' }} />
                 <span>Compare</span>
               </button>
             )}
 
+            <button
+              className="btn-subtle-toggle"
+              onClick={onOneLine}
+              title="Collapse XML into a single line"
+              data-testid="xml-oneline-btn"
+            >
+              <AlignJustify size={13} style={{ display: 'inline', marginRight: '4px' }} />
+              <span>One-Line</span>
+            </button>
+
             {onEscape && (
               <button
-                className="btn btn-secondary"
+                className="btn-subtle-toggle"
                 onClick={onEscape}
                 title="Escape quotes and newlines for embedding"
               >
@@ -234,7 +246,7 @@ export function XmlToolbar({
 
             {onUnescape && (
               <button
-                className="btn btn-secondary"
+                className="btn-subtle-toggle"
                 onClick={onUnescape}
                 title="Unescape string literal back to raw XML"
               >
@@ -242,20 +254,9 @@ export function XmlToolbar({
               </button>
             )}
           </div>
-        </div>
 
-        <div className="toolbar-group-right">
-          <FileDropzone
-            onFileLoaded={onFileLoaded}
-            acceptExtensions={['.xml', '.xsd', '.wsdl', '.soap', '.svg', '.txt']}
-          />
-          <ResetButton onReset={onReset} />
-        </div>
-      </div>
+          <div className="toolbar-vertical-divider" />
 
-      {/* Secondary Options Strip */}
-      <div className="json-secondary-toolbar">
-        <div className="secondary-group-left">
           {/* Indent Selector */}
           <div className="options-control-group">
             <label htmlFor="xml-indent-select">Indent:</label>
@@ -306,10 +307,14 @@ export function XmlToolbar({
           </div>
         </div>
 
+        {/* Right Settings & Controls */}
         <div className="secondary-group-right">
           {/* Status Badge */}
           {statusMessage && (
-            <span className={`status-badge status-${statusType}`}>
+            <span
+              className={`status-badge status-${statusType}`}
+              data-testid="xml-status-badge"
+            >
               {statusMessage}
             </span>
           )}
@@ -380,4 +385,3 @@ export function XmlToolbar({
     </div>
   );
 }
-

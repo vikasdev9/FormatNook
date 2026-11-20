@@ -13,10 +13,8 @@ import {
   Maximize,
   Minimize,
   GitCompare,
-  Quote,
   Keyboard,
   Layers,
-  FileCode2,
   AlignJustify,
 } from 'lucide-react';
 import { IndentOption } from '@/types/tool';
@@ -102,10 +100,48 @@ export function YamlToolbar({
 }: YamlToolbarProps) {
   return (
     <div className="json-workspace-toolbar-wrapper">
-      {/* Primary Toolbar */}
+      {/* Primary Toolbar (Tier 1) */}
       <div className="tool-toolbar json-main-toolbar">
         <div className="toolbar-group-left">
-          {/* View Mode Switcher */}
+          {/* Primary Operations: Beautify, Minify, Validate */}
+          <div className="toolbar-btn-group" role="group" aria-label="Primary Actions">
+            <button
+              className={`btn ${activeAction === 'format' ? 'btn-primary' : 'btn-secondary'} btn-prominent-action`}
+              onClick={onFormat}
+              aria-label="Format and beautify YAML"
+              title="Format with standardized indentation and spacing (Ctrl+Enter)"
+              data-testid="yaml-beautify-btn"
+            >
+              <Sparkles size={15} />
+              <span>Beautify</span>
+            </button>
+
+            <button
+              className={`btn ${activeAction === 'minify' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={onMinify}
+              aria-label="Minify YAML"
+              title="Compress to flow style without extra whitespace"
+              data-testid="yaml-minify-btn"
+            >
+              <Minimize2 size={15} />
+              <span>Minify</span>
+            </button>
+
+            <button
+              className={`btn ${activeAction === 'validate' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={onValidate}
+              aria-label="Validate YAML syntax"
+              title="Validate YAML syntax and document structure"
+              data-testid="yaml-validate-btn"
+            >
+              <CheckCircle2 size={15} />
+              <span>Validate</span>
+            </button>
+          </div>
+
+          <div className="toolbar-vertical-divider" />
+
+          {/* View Mode Navigation Pills */}
           <div className="json-view-mode-pills" role="tablist" aria-label="YAML View Mode">
             <button
               role="tab"
@@ -141,94 +177,68 @@ export function YamlToolbar({
               <span>Structured</span>
             </button>
           </div>
+        </div>
 
-          <div className="toolbar-vertical-divider" />
+        {/* Right: Quick Action Modal & Dropzone/Reset */}
+        <div className="toolbar-group-right">
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={onOpenConverter}
+            title="Convert YAML to JSON, XML, CSV, or TSV"
+            data-testid="yaml-convert-btn"
+          >
+            <ArrowRightLeft size={14} />
+            <span>Convert</span>
+          </button>
 
-          {/* Primary Actions Group */}
-          <div className="toolbar-btn-group" role="group" aria-label="Primary Actions">
+          <FileDropzone
+            onFileLoaded={onFileLoaded}
+            acceptExtensions={['.yaml', '.yml', '.txt']}
+          />
+          <ResetButton onReset={onReset} />
+        </div>
+      </div>
+
+      {/* Secondary Options Strip (Tier 2) */}
+      <div className="json-secondary-toolbar">
+        <div className="secondary-group-left">
+          {/* Specialized Tools Subgroup */}
+          <div className="toolbar-sub-group" role="group" aria-label="Specialized YAML Tools">
             <button
-              className={`btn ${activeAction === 'format' ? 'btn-primary' : 'btn-secondary'} btn-prominent-action`}
-              onClick={onFormat}
-              aria-label="Format and beautify YAML"
-              title="Format with standardized indentation and spacing (Ctrl+Enter)"
-              data-testid="yaml-beautify-btn"
-            >
-              <Sparkles size={15} />
-              <span>Beautify</span>
-            </button>
-
-            <button
-              className={`btn ${activeAction === 'minify' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={onMinify}
-              aria-label="Minify YAML"
-              title="Compress to flow style without extra whitespace"
-              data-testid="yaml-minify-btn"
-            >
-              <Minimize2 size={15} />
-              <span>Minify</span>
-            </button>
-
-            <button
-              className={`btn ${activeAction === 'validate' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={onValidate}
-              aria-label="Validate YAML syntax"
-              title="Validate YAML syntax and document structure"
-              data-testid="yaml-validate-btn"
-            >
-              <CheckCircle2 size={15} />
-              <span>Validate</span>
-            </button>
-
-            <button
-              className="btn btn-secondary"
-              onClick={onOneLine}
-              title="Collapse YAML into a compact single line expression"
-              data-testid="yaml-oneline-btn"
-            >
-              <AlignJustify size={15} />
-              <span>One-Line</span>
-            </button>
-          </div>
-
-          <div className="toolbar-vertical-divider" />
-
-          {/* Secondary Actions Group */}
-          <div className="toolbar-btn-group" role="group" aria-label="Secondary Actions">
-            <button
-              className="btn btn-secondary"
-              onClick={onOpenConverter}
-              title="Convert YAML to JSON, XML, CSV, or TSV"
-              data-testid="yaml-convert-btn"
-            >
-              <ArrowRightLeft size={15} />
-              <span>Convert</span>
-            </button>
-
-            <button
-              className="btn btn-secondary"
+              className="btn-subtle-toggle"
               onClick={onOpenInspector}
               title="Analyze Kubernetes, Docker Compose, GitHub Actions, or Ansible config structure"
               data-testid="yaml-inspector-btn"
             >
-              <Cpu size={15} />
+              <Cpu size={13} style={{ display: 'inline', marginRight: '4px' }} />
               <span>Config Inspector</span>
             </button>
 
             {onOpenDiff && (
               <button
-                className="btn btn-secondary"
+                className="btn-subtle-toggle"
                 onClick={onOpenDiff}
                 title="Compare input vs formatted or diff two documents"
                 data-testid="yaml-diff-btn"
               >
-                <GitCompare size={15} />
+                <GitCompare size={13} style={{ display: 'inline', marginRight: '4px' }} />
                 <span>Compare</span>
               </button>
             )}
 
+            <button
+              className="btn-subtle-toggle"
+              onClick={onOneLine}
+              title="Collapse YAML into a compact single line expression"
+              data-testid="yaml-oneline-btn"
+            >
+              <AlignJustify size={13} style={{ display: 'inline', marginRight: '4px' }} />
+              <span>One-Line</span>
+            </button>
+
             {onEscape && (
               <button
-                className="btn btn-secondary"
+                className="btn-subtle-toggle"
                 onClick={onEscape}
                 title="Escape quotes and newlines for embedding in strings"
               >
@@ -238,7 +248,7 @@ export function YamlToolbar({
 
             {onUnescape && (
               <button
-                className="btn btn-secondary"
+                className="btn-subtle-toggle"
                 onClick={onUnescape}
                 title="Unescape string literal back to raw YAML"
               >
@@ -246,20 +256,32 @@ export function YamlToolbar({
               </button>
             )}
           </div>
-        </div>
 
-        <div className="toolbar-group-right">
-          <FileDropzone
-            onFileLoaded={onFileLoaded}
-            acceptExtensions={['.yaml', '.yml', '.txt']}
-          />
-          <ResetButton onReset={onReset} />
-        </div>
-      </div>
+          <div className="toolbar-vertical-divider" />
 
-      {/* Secondary Options Strip */}
-      <div className="json-secondary-toolbar">
-        <div className="secondary-group-left">
+          {/* Multi-Document Stream Switcher */}
+          {documentCount > 1 && onSelectDocIndex && (
+            <div className="options-control-group">
+              <label htmlFor="yaml-doc-switcher">Stream ({documentCount} docs):</label>
+              <select
+                id="yaml-doc-switcher"
+                className="select-control select-xs"
+                value={selectedDocIndex}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  onSelectDocIndex(val === 'all' ? 'all' : parseInt(val, 10));
+                }}
+              >
+                <option value="all">All Documents</option>
+                {Array.from({ length: documentCount }).map((_, i) => (
+                  <option key={i} value={i}>
+                    Doc #{i + 1}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {/* Indent Selector */}
           <div className="options-control-group">
             <label htmlFor="yaml-indent-select">Indent:</label>
@@ -308,30 +330,6 @@ export function YamlToolbar({
             </select>
           </div>
 
-          {/* Multi-Document Switcher if multiple documents exist */}
-          {documentCount > 1 && onSelectDocIndex && (
-            <div className="options-control-group" style={{ backgroundColor: 'var(--bg-tertiary)', padding: '2px 6px', borderRadius: '4px' }}>
-              <Layers size={13} style={{ color: 'var(--accent-primary)' }} />
-              <label htmlFor="yaml-doc-switcher" style={{ fontWeight: 600 }}>Stream ({documentCount} docs):</label>
-              <select
-                id="yaml-doc-switcher"
-                className="select-control select-xs"
-                value={selectedDocIndex}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  onSelectDocIndex(val === 'all' ? 'all' : parseInt(val, 10));
-                }}
-              >
-                <option value="all">All Documents (Combined)</option>
-                {Array.from({ length: documentCount }).map((_, i) => (
-                  <option key={i} value={i}>
-                    Document #{i + 1}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
           {/* Sample Preset Dropdown */}
           <div className="options-control-group">
             <label htmlFor="yaml-sample-select">Samples:</label>
@@ -370,10 +368,14 @@ export function YamlToolbar({
           </div>
         </div>
 
+        {/* Right Settings & Controls */}
         <div className="secondary-group-right">
           {/* Status Message */}
           {statusMessage && (
-            <span className={`status-badge status-${statusType}`}>
+            <span
+              className={`status-badge status-${statusType}`}
+              data-testid="yaml-status-badge"
+            >
               {statusMessage}
             </span>
           )}
@@ -444,4 +446,3 @@ export function YamlToolbar({
     </div>
   );
 }
-
