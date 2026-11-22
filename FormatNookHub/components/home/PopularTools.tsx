@@ -7,6 +7,7 @@ import { IconRenderer } from '@/components/shared/IconRenderer';
 export function PopularTools() {
   // Select top popular tools
   const popularSlugs = [
+    'image-tools',
     'diff-checker',
     'json-formatter',
     'json-validator',

@@ -263,6 +263,12 @@
   background-color: var(--bg-tertiary);
 }
 
+.nav-link.active {
+  color: var(--accent-primary);
+  background-color: var(--accent-soft);
+  font-weight: 600;
+}
+
 .header-actions {
   display: flex;
   align-items: center;

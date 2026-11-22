@@ -12,6 +12,7 @@ import { YamlWorkspace } from '@/features/yaml';
 import { BeautifierWorkspace } from '@/features/beautifiers';
 import { EncoderDecoderWorkspace, BasicAuthWorkspace } from '@/features/encoders-decoders';
 import { TextDiffWorkspace } from '@/features/diff';
+import { ImageToolsWorkspace } from '@/features/image-tools';
 
 interface ToolPageProps {
   params: {
@@ -355,6 +356,20 @@ export default function ToolPage({ params }: ToolPageProps) {
       case 'diff-checker':
       case 'text-diff':
         return <TextDiffWorkspace />;
+
+      // Image Tools Workspace
+      case 'image-tools':
+        return <ImageToolsWorkspace initialTab="crop" />;
+      case 'image-compressor':
+        return <ImageToolsWorkspace initialTab="compress" />;
+      case 'image-converter':
+        return <ImageToolsWorkspace initialTab="convert" />;
+      case 'image-resizer':
+        return <ImageToolsWorkspace initialTab="resize" />;
+      case 'image-cropper':
+        return <ImageToolsWorkspace initialTab="crop" />;
+      case 'image-watermark':
+        return <ImageToolsWorkspace initialTab="watermark" />;
 
       default:
         return <div>Tool implementation pending.</div>;

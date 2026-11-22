@@ -30,6 +30,7 @@ export function Footer() {
             <h4 className="footer-title">Popular Tools</h4>
             <ul className="footer-links">
               <li><Link href="/tools/diff-checker" className="footer-link">Diff Checker</Link></li>
+              <li><Link href="/tools/image-tools" className="footer-link">Image Tools</Link></li>
               <li><Link href="/tools/json-formatter" className="footer-link">JSON Formatter</Link></li>
               <li><Link href="/tools/json-validator" className="footer-link">JSON Validator</Link></li>
               <li><Link href="/tools/xml-formatter" className="footer-link">XML Beautifier</Link></li>
@@ -41,6 +42,7 @@ export function Footer() {
           <div>
             <h4 className="footer-title">Categories</h4>
             <ul className="footer-links">
+              <li><Link href="/category/image" className="footer-link">Image Utilities</Link></li>
               <li><Link href="/category/text" className="footer-link">Text & Diff Tools</Link></li>
               <li><Link href="/category/json" className="footer-link">JSON Utilities</Link></li>
               <li><Link href="/category/xml" className="footer-link">XML Tools</Link></li>

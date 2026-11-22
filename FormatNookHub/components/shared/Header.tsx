@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { Search, Layers, ShieldCheck } from 'lucide-react';
 import { siteConfig } from '@/config/site';
 import { ThemeToggle } from './ThemeToggle';
@@ -10,6 +11,7 @@ import { useKeyboardShortcuts } from '@/features/keyboard-shortcuts';
 
 export function Header() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const pathname = usePathname();
 
   // Global Ctrl+K / Cmd+K Search Shortcut
   useKeyboardShortcuts({
@@ -41,12 +43,13 @@ export function Header() {
           </div>
 
           <nav className="header-nav">
-            <Link href="/category/json" className="nav-link">JSON</Link>
-            <Link href="/category/xml" className="nav-link">XML</Link>
-            <Link href="/category/yaml" className="nav-link">YAML</Link>
-            <Link href="/tools/diff-checker" className="nav-link">Diff Checker</Link>
-            <Link href="/tools/encoders-decoders" className="nav-link">Encoders & Decoders</Link>
-            <Link href="/category/beautifiers" className="nav-link">Beautifiers</Link>
+            <Link href="/category/json" className={`nav-link ${pathname?.includes('/json') ? 'active' : ''}`}>JSON</Link>
+            <Link href="/category/xml" className={`nav-link ${pathname?.includes('/xml') ? 'active' : ''}`}>XML</Link>
+            <Link href="/category/yaml" className={`nav-link ${pathname?.includes('/yaml') ? 'active' : ''}`}>YAML</Link>
+            <Link href="/tools/diff-checker" className={`nav-link ${pathname?.includes('/diff') ? 'active' : ''}`}>Diff Checker</Link>
+            <Link href="/tools/encoders-decoders" className={`nav-link ${pathname?.includes('/encoders-decoders') || pathname?.includes('/base64') ? 'active' : ''}`}>Encoders & Decoders</Link>
+            <Link href="/category/beautifiers" className={`nav-link ${pathname?.includes('/beautifier') ? 'active' : ''}`}>Beautifiers</Link>
+            <Link href="/tools/image-tools" className={`nav-link ${pathname?.includes('/image') ? 'active' : ''}`}>Image Tools</Link>
           </nav>
 
           <div className="header-actions">
