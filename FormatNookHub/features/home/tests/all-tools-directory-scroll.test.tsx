@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { AllToolsDirectory } from '@/components/home/AllToolsDirectory';
 
-describe('AllToolsDirectory Scrollable Filter & Option Menu Suite', () => {
+describe('AllToolsDirectory Scrollable Filter Suite', () => {
   it('renders scrollable category filters container and all category tabs', () => {
     const { container } = render(<AllToolsDirectory />);
 
@@ -11,44 +11,19 @@ describe('AllToolsDirectory Scrollable Filter & Option Menu Suite', () => {
     expect(filterContainer).not.toBeNull();
 
     const tabs = container.querySelectorAll('.filter-tab');
-    // "All Categories" + 11 distinct categories = 12 tabs
-    expect(tabs.length).toBeGreaterThanOrEqual(12);
+    // "All Categories" + 10 distinct categories = 11 tabs
+    expect(tabs.length).toBeGreaterThanOrEqual(11);
 
     const allTab = tabs[0];
     expect(allTab.textContent).toContain('All Categories');
     expect(allTab.classList.contains('active')).toBe(true);
   });
 
-  it('renders the responsive category option select dropdown', () => {
+  it('does NOT render a mobile option select dropdown (keeps pills scroller)', () => {
     const { container } = render(<AllToolsDirectory />);
 
-    const select = container.querySelector('.directory-mobile-select') as HTMLSelectElement;
-    expect(select).not.toBeNull();
-    expect(select.value).toBe('all');
-
-    const options = select.querySelectorAll('option');
-    expect(options.length).toBeGreaterThanOrEqual(12);
-  });
-
-  it('synchronizes selection between option dropdown and category tabs', () => {
-    const { container } = render(<AllToolsDirectory />);
-
-    const select = container.querySelector('.directory-mobile-select') as HTMLSelectElement;
-    expect(select).not.toBeNull();
-
-    // Select "image" category from option menu
-    fireEvent.change(select, { target: { value: 'image' } });
-    expect(select.value).toBe('image');
-
-    // The Image Utilities tab should now be active
-    const tabs = Array.from(container.querySelectorAll('.filter-tab'));
-    const imageTab = tabs.find((t) => t.textContent?.includes('Image Utilities'));
-    expect(imageTab).toBeDefined();
-    expect(imageTab?.classList.contains('active')).toBe(true);
-
-    // All Categories tab should not be active
-    const allTab = tabs[0];
-    expect(allTab.classList.contains('active')).toBe(false);
+    const select = container.querySelector('.directory-mobile-select');
+    expect(select).toBeNull();
   });
 
   it('updates selection when clicking a category tab', () => {
@@ -61,8 +36,9 @@ describe('AllToolsDirectory Scrollable Filter & Option Menu Suite', () => {
     fireEvent.click(jsonTab!);
     expect(jsonTab?.classList.contains('active')).toBe(true);
 
-    const select = container.querySelector('.directory-mobile-select') as HTMLSelectElement;
-    expect(select.value).toBe('json');
+    // All Categories tab should no longer be active
+    const allTab = tabs[0];
+    expect(allTab.classList.contains('active')).toBe(false);
   });
 
   it('filters tool cards by keyword search query', () => {
@@ -75,5 +51,22 @@ describe('AllToolsDirectory Scrollable Filter & Option Menu Suite', () => {
 
     // Should match Watermark tool
     expect(screen.getAllByText(/Watermark/i).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('handles mouse drag and wheel interaction on the scroll container', () => {
+    const { container } = render(<AllToolsDirectory />);
+    const filterContainer = container.querySelector('.directory-filters') as HTMLDivElement;
+    expect(filterContainer).not.toBeNull();
+
+    // Wheel event
+    fireEvent.wheel(filterContainer, { deltaY: 100, deltaX: 0 });
+
+    // Mouse drag events
+    fireEvent.mouseDown(filterContainer, { clientX: 200, pageX: 200 });
+    fireEvent.mouseMove(filterContainer, { clientX: 100, pageX: 100 });
+    expect(filterContainer.classList.contains('is-dragging')).toBe(true);
+
+    fireEvent.mouseUp(filterContainer);
+    expect(filterContainer.classList.contains('is-dragging')).toBe(false);
   });
 });

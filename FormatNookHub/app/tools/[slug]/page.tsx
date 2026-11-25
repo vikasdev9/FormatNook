@@ -13,6 +13,11 @@ import { BeautifierWorkspace } from '@/features/beautifiers';
 import { EncoderDecoderWorkspace, BasicAuthWorkspace } from '@/features/encoders-decoders';
 import { TextDiffWorkspace } from '@/features/diff';
 import { ImageToolsWorkspace } from '@/features/image-tools';
+import { WordCounterWorkspace } from '@/features/text';
+import { UuidWorkspace } from '@/features/uuid';
+import { JwtWorkspace } from '@/features/jwt';
+import { CsvWorkspace } from '@/features/csv';
+import { TimestampWorkspace } from '@/features/timestamp';
 
 interface ToolPageProps {
   params: {
@@ -357,6 +362,38 @@ export default function ToolPage({ params }: ToolPageProps) {
       case 'text-diff':
         return <TextDiffWorkspace />;
 
+      // Text & Word Counter Productivity Tools
+      case 'word-counter':
+        return <WordCounterWorkspace initialTab="counter" />;
+      case 'readability-analyzer':
+        return <WordCounterWorkspace initialTab="readability" />;
+      case 'keyword-density-checker':
+        return <WordCounterWorkspace initialTab="keywords" />;
+      case 'social-media-character-counter':
+        return <WordCounterWorkspace initialTab="social" />;
+      case 'text-cleaner':
+        return <WordCounterWorkspace initialTab="cleaner" />;
+
+      // UUID & GUID Workspace Tools
+      case 'uuid-generator':
+        return <UuidWorkspace initialTab="generator" />;
+      case 'uuid-validator':
+        return <UuidWorkspace initialTab="validator" />;
+      case 'uuid-converter':
+        return <UuidWorkspace initialTab="converter" />;
+      case 'uuid-deduplicator':
+        return <UuidWorkspace initialTab="deduplicator" />;
+
+      // JWT Decoder & Inspector Tools
+      case 'jwt-decoder':
+        return <JwtWorkspace initialTab="overview" />;
+      case 'jwt-inspector':
+        return <JwtWorkspace initialTab="header" />;
+      case 'jwt-claims-analyzer':
+        return <JwtWorkspace initialTab="payload" />;
+      case 'jwt-timestamp-converter':
+        return <JwtWorkspace initialTab="converter" />;
+
       // Image Tools Workspace
       case 'image-tools':
         return <ImageToolsWorkspace initialTab="crop" />;
@@ -370,6 +407,20 @@ export default function ToolPage({ params }: ToolPageProps) {
         return <ImageToolsWorkspace initialTab="crop" />;
       case 'image-watermark':
         return <ImageToolsWorkspace initialTab="watermark" />;
+
+      // CSV to JSON Converter & Tabular Utilities
+      case 'csv-to-json':
+        return <CsvWorkspace initialTab="editor" />;
+      case 'csv-validator':
+        return <CsvWorkspace initialTab="preview" />;
+      case 'csv-preview':
+        return <CsvWorkspace initialTab="preview" />;
+
+      // Unix Timestamp & Epoch Converter
+      case 'unix-timestamp-converter':
+      case 'epoch-converter':
+      case 'timestamp-converter':
+        return <TimestampWorkspace />;
 
       default:
         return <div>Tool implementation pending.</div>;

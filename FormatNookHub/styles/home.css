@@ -185,7 +185,7 @@
   gap: 0.25rem;
 }
 
-/* Home Section Header Actions & Mobile Category Select */
+/* Home Section Header Actions & Search */
 .home-section-actions {
   display: flex;
   align-items: center;
@@ -193,28 +193,19 @@
   flex-wrap: wrap;
 }
 
-.directory-mobile-select-wrap {
-  display: none;
+.directory-search-box {
+  position: relative;
+  width: 100%;
+  max-width: 320px;
 }
 
 @media (max-width: 768px) {
-  .directory-mobile-select-wrap {
-    display: block;
+  .home-section-actions {
     width: 100%;
-    max-width: 320px;
   }
-}
-
-.directory-mobile-select {
-  height: 38px;
-  border-radius: var(--radius-full);
-  padding: 0 1rem;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  background-color: var(--bg-card);
-  color: var(--text-primary);
-  border: 1px solid var(--border-default);
-  cursor: pointer;
+  .directory-search-box {
+    max-width: 100%;
+  }
 }
 
 /* Filterable Directory Section with Smooth Horizontal Scrolling */
@@ -230,7 +221,7 @@
   left: 0;
   top: 0;
   bottom: 0.5rem;
-  width: 48px;
+  width: 32px;
   background: linear-gradient(to right, var(--bg-primary), transparent);
   z-index: 2;
   pointer-events: none;
@@ -242,7 +233,7 @@
   right: 0;
   top: 0;
   bottom: 0.5rem;
-  width: 48px;
+  width: 32px;
   background: linear-gradient(to left, var(--bg-primary), transparent);
   z-index: 2;
   pointer-events: none;
@@ -252,9 +243,9 @@
   position: absolute;
   top: calc(50% - 0.25rem);
   transform: translateY(-50%);
-  z-index: 4;
-  width: 32px;
-  height: 32px;
+  z-index: 5;
+  width: 34px;
+  height: 34px;
   border-radius: 9999px;
   background-color: var(--bg-card);
   border: 1px solid var(--border-default);
@@ -271,7 +262,7 @@
   background-color: var(--bg-secondary);
   border-color: var(--accent-primary);
   color: var(--accent-primary);
-  transform: translateY(-50%) scale(1.05);
+  transform: translateY(-50%) scale(1.06);
 }
 
 .directory-scroll-btn:focus-visible {
@@ -293,12 +284,19 @@
   gap: 0.5rem;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 0.25rem 0.25rem 0.625rem 0.25rem;
+  padding: 0.375rem 3.5rem 0.625rem 0.5rem;
   scroll-behavior: smooth;
   scroll-snap-type: x proximity;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
   scrollbar-color: var(--border-default) transparent;
+  cursor: grab;
+  user-select: none;
+}
+
+.directory-filters.is-dragging {
+  cursor: grabbing;
+  scroll-behavior: auto;
 }
 
 .directory-filters::-webkit-scrollbar {

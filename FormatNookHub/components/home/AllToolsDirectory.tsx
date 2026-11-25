@@ -11,10 +11,15 @@ export function AllToolsDirectory() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Scroll Container Ref & Overflow State
+  // Scroll Container Ref, Overflow & Drag State
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState<boolean>(false);
   const [canScrollRight, setCanScrollRight] = useState<boolean>(false);
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const isMouseDownRef = useRef<boolean>(false);
+  const startXRef = useRef<number>(0);
+  const scrollLeftStartRef = useRef<number>(0);
+  const hasDraggedRef = useRef<boolean>(false);
 
   // Checks horizontal overflow & updates scroll button visibility
   const updateScrollState = useCallback(() => {
@@ -22,22 +27,42 @@ export function AllToolsDirectory() {
     if (!el) return;
     const hasOverflow = el.scrollWidth > el.clientWidth;
     setCanScrollLeft(el.scrollLeft > 6);
-    setCanScrollRight(hasOverflow && el.scrollLeft < el.scrollWidth - el.clientWidth - 6);
+    setCanScrollRight(hasOverflow && el.scrollLeft < el.scrollWidth - el.clientWidth - 10);
   }, []);
 
   useEffect(() => {
     updateScrollState();
+    const el = scrollContainerRef.current;
+    if (!el) return;
+
+    let resizeObserver: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(() => {
+        updateScrollState();
+      });
+      resizeObserver.observe(el);
+    }
+
+    if (typeof document !== 'undefined' && 'fonts' in document) {
+      document.fonts.ready.then(() => {
+        updateScrollState();
+      });
+    }
+
     window.addEventListener('resize', updateScrollState);
-    return () => window.removeEventListener('resize', updateScrollState);
+    return () => {
+      if (resizeObserver) resizeObserver.disconnect();
+      window.removeEventListener('resize', updateScrollState);
+    };
   }, [updateScrollState]);
 
   // Smooth scroll buttons
   const handleScrollLeft = () => {
-    scrollContainerRef.current?.scrollBy({ left: -260, behavior: 'smooth' });
+    scrollContainerRef.current?.scrollBy({ left: -280, behavior: 'smooth' });
   };
 
   const handleScrollRight = () => {
-    scrollContainerRef.current?.scrollBy({ left: 260, behavior: 'smooth' });
+    scrollContainerRef.current?.scrollBy({ left: 280, behavior: 'smooth' });
   };
 
   // Natural mouse wheel horizontal scrolling
@@ -48,15 +73,54 @@ export function AllToolsDirectory() {
     }
   };
 
+  // Mouse drag-to-scroll (pan) for desktop mouse users
+  const getEventX = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (typeof e.pageX === 'number' && e.pageX !== 0) return e.pageX;
+    if (typeof e.clientX === 'number' && e.clientX !== 0) return e.clientX;
+    return e.pageX ?? e.clientX ?? 0;
+  };
+
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!scrollContainerRef.current) return;
+    isMouseDownRef.current = true;
+    hasDraggedRef.current = false;
+    const xCoord = getEventX(e);
+    startXRef.current = xCoord - (scrollContainerRef.current.offsetLeft || 0);
+    scrollLeftStartRef.current = scrollContainerRef.current.scrollLeft || 0;
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isMouseDownRef.current || !scrollContainerRef.current) return;
+    const xCoord = getEventX(e);
+    const x = xCoord - (scrollContainerRef.current.offsetLeft || 0);
+    const walk = x - startXRef.current;
+    if (Math.abs(walk) > 4) {
+      hasDraggedRef.current = true;
+      setIsDragging(true);
+    }
+    scrollContainerRef.current.scrollLeft = scrollLeftStartRef.current - walk;
+    updateScrollState();
+  };
+
+  const handleMouseUpOrLeave = () => {
+    isMouseDownRef.current = false;
+    if (isDragging) setIsDragging(false);
+  };
+
   // Center clicked category pill in viewport
   const handleCategorySelect = (catId: string, targetEl?: HTMLElement) => {
+    // If user dragged to pan, ignore the click
+    if (hasDraggedRef.current) {
+      hasDraggedRef.current = false;
+      return;
+    }
     setSelectedCategory(catId);
     if (targetEl && typeof targetEl.scrollIntoView === 'function') {
       targetEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
     }
   };
 
-  // Sync scroll position when category changes via dropdown
+  // Sync scroll position when category changes
   useEffect(() => {
     if (!scrollContainerRef.current) return;
     const activeBtn = scrollContainerRef.current.querySelector('.filter-tab.active') as HTMLElement;
@@ -91,32 +155,8 @@ export function AllToolsDirectory() {
           </div>
 
           <div className="home-section-actions">
-            {/* Mobile Category Option Menu */}
-            <div className="directory-mobile-select-wrap">
-              <label htmlFor="directory-category-select" className="sr-only">
-                Filter by category
-              </label>
-              <select
-                id="directory-category-select"
-                value={selectedCategory}
-                onChange={(e) => handleCategorySelect(e.target.value)}
-                className="select-control directory-mobile-select"
-                aria-label="Filter tools by category option menu"
-              >
-                <option value="all">All Categories ({toolRegistry.length})</option>
-                {categoryList.map((cat) => {
-                  const count = toolRegistry.filter((t) => t.category === cat.id).length;
-                  return (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name} ({count})
-                    </option>
-                  );
-                })}
-              </select>
-            </div>
-
             {/* Keyword Search Filter */}
-            <div style={{ position: 'relative', width: '100%', maxWidth: '320px' }}>
+            <div className="directory-search-box">
               <Search
                 size={16}
                 color="var(--text-muted)"
@@ -160,9 +200,13 @@ export function AllToolsDirectory() {
 
           <div
             ref={scrollContainerRef}
-            className="directory-filters"
+            className={`directory-filters ${isDragging ? 'is-dragging' : ''}`}
             onScroll={updateScrollState}
             onWheel={handleWheel}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUpOrLeave}
+            onMouseLeave={handleMouseUpOrLeave}
             role="tablist"
             aria-label="Filter tools by category"
             data-testid="directory-filters"

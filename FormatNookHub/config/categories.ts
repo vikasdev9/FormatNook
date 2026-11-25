@@ -65,14 +65,6 @@ export const categories: Record<ToolCategory, CategoryDefinition> = {
     shortDescription: 'JWT, UUID & Unix timestamp tools',
     icon: 'Wrench',
   },
-  'css-design': {
-    id: 'css-design',
-    name: 'CSS & Design Generators',
-    slug: 'css-design',
-    description: 'Generate CSS gradients, box shadows, border radii, glassmorphism effects, flexbox, and grid layouts visually.',
-    shortDescription: 'CSS gradients & shadow generators',
-    icon: 'Palette',
-  },
   converters: {
     id: 'converters',
     name: 'Data Converters',

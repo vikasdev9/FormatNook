@@ -7,7 +7,6 @@ export type ToolCategory =
   | 'image'
   | 'text'
   | 'developer'
-  | 'css-design'
   | 'converters'
   | 'encoders-decoders';
 

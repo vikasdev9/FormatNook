@@ -29,6 +29,11 @@ export function Footer() {
           <div>
             <h4 className="footer-title">Popular Tools</h4>
             <ul className="footer-links">
+              <li><Link href="/tools/csv-to-json" className="footer-link">CSV to JSON</Link></li>
+              <li><Link href="/tools/unix-timestamp-converter" className="footer-link">Unix Timestamp</Link></li>
+              <li><Link href="/tools/jwt-decoder" className="footer-link">JWT Decoder</Link></li>
+              <li><Link href="/tools/uuid-generator" className="footer-link">UUID Generator</Link></li>
+              <li><Link href="/tools/word-counter" className="footer-link">Word Counter</Link></li>
               <li><Link href="/tools/diff-checker" className="footer-link">Diff Checker</Link></li>
               <li><Link href="/tools/image-tools" className="footer-link">Image Tools</Link></li>
               <li><Link href="/tools/json-formatter" className="footer-link">JSON Formatter</Link></li>
